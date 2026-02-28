@@ -1,0 +1,45 @@
+name: serbisyo_alisto
+description: SerbisyoAlisto - Municipal Service Request mobile app for City of Laoag
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.18.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI & animations
+  flutter_animate: ^4.5.0
+  animations: ^2.0.6
+  shimmer: ^3.0.0
+
+  # Icons & fonts
+  lucide_icons: ^0.257.0
+  google_fonts: ^8.0.2
+  flutter_svg: ^2.0.7
+
+  # State & navigation
+  provider: ^6.0.5
+
+  # Firebase core
+  firebase_core: ^4.4.0
+  firebase_auth: ^6.1.4
+  cloud_firestore: 6.1.2
+  firebase_storage: ^13.0.1
+
+  # File uploads
+  file_picker: ^8.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/logo.jpg
+    - assets/rsz_lc_seal.webp
