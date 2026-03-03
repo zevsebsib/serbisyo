@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:serbisyo_alisto/firebase_options.dart';
@@ -16,18 +17,36 @@ import 'package:serbisyo_alisto/screens/request_tracking_screen.dart';
 import 'package:serbisyo_alisto/screens/service_category_detail_screen.dart';
 import 'package:serbisyo_alisto/screens/service_form_screen.dart';
 import 'package:serbisyo_alisto/screens/services_screen.dart';
+import 'package:serbisyo_alisto/screens/settings_screen.dart'; // NEW
 import 'package:serbisyo_alisto/screens/splash_screen.dart';
 import 'package:serbisyo_alisto/screens/status_screen.dart';
 import 'package:serbisyo_alisto/screens/submission_receipt_screen.dart';
 import 'package:serbisyo_alisto/screens/support_screen.dart';
 import 'package:serbisyo_alisto/theme/app_theme.dart';
 
+// FIX: top-level FCM background handler — must be outside any class
+@pragma('vm:entry-point')
+Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  debugPrint('Background message: ${message.notification?.title}');
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Force portrait and integrate status bar color
+
+  // FIX: initialize FCM and request permission on app start
+  await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]).then((_) {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -44,9 +63,13 @@ class SerbisyoAlistoApp extends StatefulWidget {
   State<SerbisyoAlistoApp> createState() => _SerbisyoAlistoAppState();
 }
 
-class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp> with WidgetsBindingObserver {
+class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
+    with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   String? _currentRoute;
+
+  // FIX: track when app was paused
+  DateTime? _pausedAt;
 
   @override
   void initState() {
@@ -60,10 +83,21 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp> with WidgetsBindi
     super.dispose();
   }
 
+  // FIX: only redirect to splash after 30+ minutes in background
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _currentRoute != '/splash') {
-      _navigatorKey.currentState?.pushNamedAndRemoveUntil('/splash', (route) => false);
+    if (state == AppLifecycleState.paused) {
+      _pausedAt = DateTime.now();
+    }
+    if (state == AppLifecycleState.resumed) {
+      if (_pausedAt != null) {
+        final diff = DateTime.now().difference(_pausedAt!);
+        if (diff.inMinutes >= 30 && _currentRoute != '/splash') {
+          _navigatorKey.currentState
+              ?.pushNamedAndRemoveUntil('/splash', (route) => false);
+        }
+      }
+      _pausedAt = null;
     }
   }
 
@@ -78,6 +112,7 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp> with WidgetsBindi
       onGenerateRoute: (settings) {
         _currentRoute = settings.name;
         Widget page;
+
         switch (settings.name) {
           case '/splash':
             page = const SplashScreen();
@@ -99,7 +134,8 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp> with WidgetsBindi
             break;
           case '/service_detail':
             final args = settings.arguments as Map<String, dynamic>?;
-            page = ServiceCategoryDetailScreen(categoryId: args?['categoryId'] ?? 'mayor');
+            page = ServiceCategoryDetailScreen(
+                categoryId: args?['categoryId'] ?? 'mayor');
             break;
           case '/service_form':
             final args = settings.arguments as Map<String, dynamic>?;
@@ -126,8 +162,9 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp> with WidgetsBindi
           case '/profile_help':
             page = const SupportScreen();
             break;
+          // FIX: settings now has its own screen
           case '/profile_settings':
-            page = const SupportScreen(); // Placeholder
+            page = const SettingsScreen();
             break;
           case '/status_success':
             page = const StatusScreen(isSuccess: true);
@@ -145,7 +182,6 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp> with WidgetsBindi
             page = const NotFoundScreen();
         }
 
-        // Use non-directional transition to avoid horizontal offset artifacts
         if (settings.name == '/splash') {
           return PageRouteBuilder(
             settings: settings,
@@ -161,13 +197,8 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp> with WidgetsBindi
           reverseTransitionDuration: const Duration(milliseconds: 180),
           pageBuilder: (context, anim, secAnim) => page,
           transitionsBuilder: (context, anim, secAnim, child) {
-            final fadeAnimation = CurvedAnimation(
-              parent: anim,
-              curve: Curves.easeOut,
-            );
-
             return FadeTransition(
-              opacity: fadeAnimation,
+              opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
               child: child,
             );
           },
@@ -189,7 +220,8 @@ class NotFoundScreen extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text('Page Not Found', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Page Not Found',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => Navigator.pushReplacementNamed(context, '/'),

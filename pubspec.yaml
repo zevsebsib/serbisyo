@@ -26,11 +26,14 @@ dependencies:
   # Firebase core
   firebase_core: ^4.4.0
   firebase_auth: ^6.1.4
-  cloud_firestore: 6.1.2
+  cloud_firestore: ^6.1.2        # FIX: added missing ^
   firebase_storage: ^13.0.1
+  firebase_messaging: 16.1.1    # NEW: push notifications
+
 
   # File uploads
   file_picker: ^8.1.2
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -43,3 +46,5 @@ flutter:
   assets:
     - assets/logo.jpg
     - assets/rsz_lc_seal.webp
+
+url_launcher: ^6.2.5    # ADD THIS
