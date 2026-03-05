@@ -1,7 +1,10 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:serbisyo_alisto/admin/screens/admin_login_screen.dart';
+import 'package:serbisyo_alisto/admin/screens/admin_shell_screen.dart';
 import 'package:serbisyo_alisto/firebase_options.dart';
 import 'package:serbisyo_alisto/screens/alerts_demo_screen.dart';
 import 'package:serbisyo_alisto/screens/dashboard_screen.dart';
@@ -17,14 +20,13 @@ import 'package:serbisyo_alisto/screens/request_tracking_screen.dart';
 import 'package:serbisyo_alisto/screens/service_category_detail_screen.dart';
 import 'package:serbisyo_alisto/screens/service_form_screen.dart';
 import 'package:serbisyo_alisto/screens/services_screen.dart';
-import 'package:serbisyo_alisto/screens/settings_screen.dart'; // NEW
+import 'package:serbisyo_alisto/screens/settings_screen.dart';
 import 'package:serbisyo_alisto/screens/splash_screen.dart';
 import 'package:serbisyo_alisto/screens/status_screen.dart';
 import 'package:serbisyo_alisto/screens/submission_receipt_screen.dart';
 import 'package:serbisyo_alisto/screens/support_screen.dart';
 import 'package:serbisyo_alisto/theme/app_theme.dart';
 
-// FIX: top-level FCM background handler — must be outside any class
 @pragma('vm:entry-point')
 Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -38,22 +40,28 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // FIX: initialize FCM and request permission on app start
-  await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
+  // FCM only for mobile — not needed on web admin
+  if (!kIsWeb) {
+    await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+  }
 
-  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
-
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]).then((_) {
+  if (!kIsWeb) {
+    // Mobile only — force portrait
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
     ));
-    runApp(const SerbisyoAlistoApp());
-  });
+  }
+
+  runApp(const SerbisyoAlistoApp());
 }
 
 class SerbisyoAlistoApp extends StatefulWidget {
@@ -67,23 +75,20 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
     with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   String? _currentRoute;
-
-  // FIX: track when app was paused
   DateTime? _pausedAt;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    if (!kIsWeb) WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    if (!kIsWeb) WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  // FIX: only redirect to splash after 30+ minutes in background
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
@@ -108,12 +113,23 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
       title: 'SerbisyoAlisto',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      initialRoute: '/splash',
+      // FIX: web starts at admin login, mobile starts at splash
+      initialRoute: kIsWeb ? '/admin/login' : '/splash',
       onGenerateRoute: (settings) {
         _currentRoute = settings.name;
         Widget page;
 
         switch (settings.name) {
+
+          // ── Admin / Web routes ─────────────────────────────────
+          case '/admin/login':
+            page = const AdminLoginScreen();
+            break;
+          case '/admin':
+            page = AdminShellScreen();
+            break;
+
+          // ── Mobile routes ──────────────────────────────────────
           case '/splash':
             page = const SplashScreen();
             break;
@@ -162,7 +178,6 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
           case '/profile_help':
             page = const SupportScreen();
             break;
-          // FIX: settings now has its own screen
           case '/profile_settings':
             page = const SettingsScreen();
             break;
