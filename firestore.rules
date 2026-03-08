@@ -2,18 +2,82 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admin/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin';
+    }
+
+    function isAdminStaff() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admin/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isAnyAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admin/$(request.auth.uid));
+    }
+
+    // ── Admin collection ───────────────────────────────────────────
+    match /admin/{adminId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();        // register
+      allow update: if isSignedIn() &&
+        (request.auth.uid == adminId || isSuperAdmin());
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Users (citizens) ───────────────────────────────────────────
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isSignedIn() &&
+        (request.auth.uid == userId || isAnyAdmin());
+      allow write: if isSignedIn() &&
+        (request.auth.uid == userId || isSuperAdmin());
     }
 
+    // ── Requests ───────────────────────────────────────────────────
     match /requests/{requestId} {
-      allow read, write: if request.auth != null &&
-        request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null;
+      // superadmin sees all, staff sees only assigned
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId ||
+        isSuperAdmin() ||
+        (isAdminStaff() && resource.data.assignedTo == request.auth.uid)
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.userId ||
+        isAnyAdmin()
+      );
+      allow delete: if isSuperAdmin();
     }
 
+    // ── Notifications ──────────────────────────────────────────────
     match /notifications/{userId}/items/{notifId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isSignedIn() &&
+        (request.auth.uid == userId || isAnyAdmin());
+    }
+
+    // ── Departments ────────────────────────────────────────────────
+    match /departments/{deptId} {
+      allow read: if isAnyAdmin();
+      allow write: if isSuperAdmin();
+    }
+
+    // ── Categories ─────────────────────────────────────────────────
+    match /categories/{categoryId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // ── Announcements ──────────────────────────────────────────────
+    match /announcements/{announcementId} {
+      allow read: if isSignedIn();
+      allow write: if isAnyAdmin();
     }
   }
 }
