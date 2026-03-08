@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  fl_chart: ^0.68.0
 
   # UI & animations
   flutter_animate: ^4.5.0
@@ -49,3 +50,4 @@ flutter:
     - assets/rsz_lc_seal.webp
 
 url_launcher: ^6.2.5    # ADD THIS
+

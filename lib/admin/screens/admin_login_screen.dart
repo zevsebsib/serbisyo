@@ -570,7 +570,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                 ),
               ),
               TextSpan(
-                text: 'Back',
+                text: 'Admin',
                 style: GoogleFonts.inter(
                   fontSize: 32,
                   fontWeight: FontWeight.w800,

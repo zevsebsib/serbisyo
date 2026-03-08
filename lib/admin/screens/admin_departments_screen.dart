@@ -1,7 +1,1355 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-class AdminDepartmentsScreen extends StatelessWidget {
+import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_theme.dart';
+
+class AdminDepartmentsScreen extends StatefulWidget {
   const AdminDepartmentsScreen({super.key});
+
   @override
-  Widget build(BuildContext context) =>
-      const Center(child: Text('Departments'));
+  State<AdminDepartmentsScreen> createState() =>
+      _AdminDepartmentsScreenState();
+}
+
+class _AdminDepartmentsScreenState
+    extends State<AdminDepartmentsScreen> {
+  bool   _loading     = true;
+  String _searchQuery = '';
+
+  List<Map<String, dynamic>> _allDepartments      = [];
+  List<Map<String, dynamic>> _filteredDepartments = [];
+  List<Map<String, dynamic>> _staffList           = [];
+
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // ── Data loading ───────────────────────────────────────────────────────────
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
+    try {
+      // Load staff for head assignment
+      final staffSnap = await FirebaseFirestore.instance
+          .collection('admin')
+          .where('role', isEqualTo: 'admin')
+          .where('isActive', isEqualTo: true)
+          .get();
+      _staffList = staffSnap.docs.map((d) => {
+        'uid':      d.id,
+        'fullName': d.data()['fullName'] ?? 'Staff',
+        'email':    d.data()['email'] ?? '',
+      }).toList();
+
+      // Load departments
+      final deptSnap = await FirebaseFirestore.instance
+          .collection('departments')
+          .orderBy('name')
+          .get();
+
+      // Load staff per department
+      final staffDeptSnap = await FirebaseFirestore.instance
+          .collection('admin')
+          .get();
+
+      // Build map: deptId → staff list
+      final Map<String, List<Map<String, dynamic>>> deptStaffMap = {};
+      for (final s in staffDeptSnap.docs) {
+        final data     = s.data();
+        final deptId   = data['departmentId']?.toString() ?? '';
+        if (deptId.isEmpty) continue;
+        deptStaffMap.putIfAbsent(deptId, () => []);
+        deptStaffMap[deptId]!.add({
+          'uid':      s.id,
+          'fullName': data['fullName'] ?? 'Staff',
+          'email':    data['email'] ?? '',
+          'role':     data['role'] ?? 'admin',
+        });
+      }
+
+      // Build head name map
+      final Map<String, String> headNames = {};
+      for (final s in _staffList) {
+        headNames[s['uid'] as String] = s['fullName'] as String;
+      }
+
+      _allDepartments = deptSnap.docs.map((d) {
+        final data   = d.data();
+        final headId = data['headId']?.toString() ?? '';
+        return {
+          'id':          d.id,
+          'name':        data['name'] ?? '',
+          'description': data['description'] ?? '',
+          'headId':      headId,
+          'headName':    headNames[headId] ?? '—',
+          'isActive':    data['isActive'] ?? true,
+          'createdAt':   data['createdAt'],
+          'staffList':   deptStaffMap[d.id] ?? [],
+        };
+      }).toList();
+
+      _applySearch();
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  void _applySearch() {
+    if (_searchQuery.isEmpty) {
+      _filteredDepartments = List.from(_allDepartments);
+    } else {
+      final q = _searchQuery.toLowerCase();
+      _filteredDepartments = _allDepartments.where((d) =>
+          d['name'].toString().toLowerCase().contains(q) ||
+          d['description'].toString().toLowerCase().contains(q))
+          .toList();
+    }
+    setState(() {});
+  }
+
+  // ── BUILD ──────────────────────────────────────────────────────────────────
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(
+          child: CircularProgressIndicator(
+              color: AppColors.primary));
+    }
+    return Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 20),
+          _buildSearchBar(),
+          const SizedBox(height: 16),
+          _buildStatsRow(),
+          const SizedBox(height: 16),
+          Expanded(child: _buildGrid()),
+        ],
+      ),
+    );
+  }
+
+  // ── Header ─────────────────────────────────────────────────────────────────
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Departments',
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF111111),
+                    letterSpacing: -0.5,
+                  )),
+              const SizedBox(height: 4),
+              Text(
+                '${_filteredDepartments.length} department${_filteredDepartments.length != 1 ? 's' : ''}',
+                style: GoogleFonts.inter(
+                    fontSize: 13, color: AppColors.muted),
+              ),
+            ],
+          ),
+        ),
+        // Refresh
+        Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+                color: const Color(0xFFEEEEEE)),
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.refresh_rounded,
+                size: 18, color: AppColors.muted),
+            onPressed: _loadData,
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Add department
+        ElevatedButton.icon(
+          onPressed: () => _showDeptDialog(),
+          icon: const Icon(Icons.add_rounded, size: 16),
+          label: Text('Add Department',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              )),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(
+                horizontal: 18, vertical: 10),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Search bar ─────────────────────────────────────────────────────────────
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        height: 40,
+        child: TextField(
+          controller: _searchController,
+          onChanged: (v) {
+            _searchQuery = v;
+            _applySearch();
+          },
+          style: GoogleFonts.inter(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Search departments...',
+            hintStyle: GoogleFonts.inter(
+                color: AppColors.muted, fontSize: 12),
+            prefixIcon: const Icon(Icons.search,
+                size: 16, color: AppColors.muted),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear,
+                        size: 14, color: AppColors.muted),
+                    onPressed: () {
+                      _searchController.clear();
+                      _searchQuery = '';
+                      _applySearch();
+                    },
+                  )
+                : null,
+            filled: true,
+            fillColor: const Color(0xFFF7F8FC),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide:
+                  const BorderSide(color: Color(0xFFEEEEEE)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide:
+                  const BorderSide(color: Color(0xFFEEEEEE)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                  color: AppColors.primary, width: 1.5),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Stats row ──────────────────────────────────────────────────────────────
+  Widget _buildStatsRow() {
+    final total    = _allDepartments.length;
+    final active   = _allDepartments
+        .where((d) => d['isActive'] == true).length;
+    final inactive = total - active;
+    final withHead = _allDepartments
+        .where((d) =>
+            (d['headId'] as String?)?.isNotEmpty == true)
+        .length;
+
+    final stats = <Map<String, dynamic>>[
+      {
+        'label': 'Total',
+        'value': total,
+        'icon':  Icons.account_tree_rounded,
+        'color': const Color(0xFF5C6BC0),
+        'bg':    const Color(0xFFEDE7F6),
+      },
+      {
+        'label': 'Active',
+        'value': active,
+        'icon':  Icons.check_circle_rounded,
+        'color': const Color(0xFF10B981),
+        'bg':    const Color(0xFFECFDF5),
+      },
+      {
+        'label': 'Inactive',
+        'value': inactive,
+        'icon':  Icons.block_rounded,
+        'color': const Color(0xFFEF4444),
+        'bg':    const Color(0xFFFEF2F2),
+      },
+      {
+        'label': 'With Head',
+        'value': withHead,
+        'icon':  Icons.manage_accounts_rounded,
+        'color': AppColors.primary,
+        'bg':    const Color(0xFFFFF7ED),
+      },
+    ];
+
+    return Row(
+      children: stats.asMap().entries.map((entry) {
+        final i     = entry.key;
+        final s     = entry.value;
+        final color = s['color'] as Color;
+        final isLast = i == stats.length - 1;
+        return Expanded(
+          child: Container(
+            margin: EdgeInsets.only(right: isLast ? 0 : 16),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color:
+                      Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: s['bg'] as Color,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(s['icon'] as IconData,
+                      color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text('${s['value']}',
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF111111),
+                          letterSpacing: -0.5,
+                        )),
+                    Text(s['label'] as String,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w500,
+                        )),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ── Department grid ────────────────────────────────────────────────────────
+  Widget _buildGrid() {
+    if (_filteredDepartments.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.account_tree_outlined,
+                size: 48,
+                color: AppColors.muted.withValues(alpha: 0.3)),
+            const SizedBox(height: 12),
+            Text('No departments found',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.muted,
+                )),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: () => _showDeptDialog(),
+              icon: const Icon(Icons.add_rounded, size: 15),
+              label: Text('Add First Department',
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      gridDelegate:
+          const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 1.5,
+      ),
+      itemCount: _filteredDepartments.length,
+      itemBuilder: (_, i) =>
+          _buildDeptCard(_filteredDepartments[i]),
+    );
+  }
+
+  Widget _buildDeptCard(Map<String, dynamic> dept) {
+    final isActive   = dept['isActive'] as bool? ?? true;
+    final staffList  = dept['staffList'] as List;
+    final staffCount = staffList.length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isActive
+              ? const Color(0xFFEEEEEE)
+              : const Color(0xFFEF4444).withValues(alpha: 0.20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Card header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? AppColors.primary.withValues(alpha: 0.06)
+                  : const Color(0xFFF5F5F5),
+              borderRadius: const BorderRadius.only(
+                topLeft:  Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? AppColors.primary
+                            .withValues(alpha: 0.12)
+                        : const Color(0xFFEEEEEE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.account_tree_rounded,
+                    color: isActive
+                        ? AppColors.primary
+                        : AppColors.muted,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Text(dept['name'] as String,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF111111),
+                          )),
+                      Container(
+                        margin: const EdgeInsets.only(top: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? const Color(0xFF10B981)
+                                  .withValues(alpha: 0.10)
+                              : const Color(0xFFEF4444)
+                                  .withValues(alpha: 0.10),
+                          borderRadius:
+                              BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          isActive ? 'Active' : 'Inactive',
+                          style: GoogleFonts.inter(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: isActive
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFEF4444),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Options menu
+                PopupMenuButton<String>(
+                  onSelected: (v) =>
+                      _handleCardAction(v, dept),
+                  icon: const Icon(Icons.more_vert_rounded,
+                      size: 18, color: AppColors.muted),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  itemBuilder: (_) => [
+                    _popupItem('edit',   Icons.edit_rounded,
+                        'Edit',   const Color(0xFF5C6BC0)),
+                    _popupItem('staff',
+                        Icons.people_rounded,
+                        'View Staff',
+                        const Color(0xFF3B82F6)),
+                    _popupItem(
+                        'toggle',
+                        isActive
+                            ? Icons.block_rounded
+                            : Icons.check_circle_rounded,
+                        isActive ? 'Deactivate' : 'Activate',
+                        isActive
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF10B981)),
+                    _popupItem('delete',
+                        Icons.delete_rounded,
+                        'Delete',
+                        const Color(0xFFEF4444)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Card body
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Description
+                  Text(
+                    (dept['description'] as String?)
+                                ?.isNotEmpty ==
+                            true
+                        ? dept['description'] as String
+                        : 'No description provided.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: AppColors.muted,
+                      height: 1.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Footer info row
+                  Row(
+                    children: [
+                      // Head
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(
+                                Icons.manage_accounts_rounded,
+                                size: 13,
+                                color: AppColors.muted),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                dept['headName'] as String,
+                                overflow:
+                                    TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Staff count
+                      Row(
+                        children: [
+                          const Icon(Icons.badge_rounded,
+                              size: 13,
+                              color: AppColors.muted),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$staffCount staff',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _popupItem(
+      String value, IconData icon, String label, Color color) {
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 10),
+          Text(label,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF333333),
+              )),
+        ],
+      ),
+    );
+  }
+
+  void _handleCardAction(
+      String action, Map<String, dynamic> dept) {
+    switch (action) {
+      case 'edit':
+        _showDeptDialog(dept: dept);
+        break;
+      case 'staff':
+        _showStaffDialog(dept);
+        break;
+      case 'toggle':
+        _toggleActive(
+            dept['id'] as String,
+            dept['isActive'] as bool? ?? true);
+        break;
+      case 'delete':
+        _confirmDelete(
+            dept['id'] as String,
+            dept['name'] as String);
+        break;
+    }
+  }
+
+  // ── Add / Edit dialog ──────────────────────────────────────────────────────
+  void _showDeptDialog({Map<String, dynamic>? dept}) {
+    final isEdit       = dept != null;
+    final nameCtrl     = TextEditingController(
+        text: isEdit ? dept['name'] as String : '');
+    final descCtrl     = TextEditingController(
+        text: isEdit ? dept['description'] as String : '');
+    String? selectedHead = isEdit &&
+            (dept['headId'] as String?)?.isNotEmpty == true
+        ? dept['headId'] as String
+        : null;
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setInner) => Dialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            width: 500,
+            padding: const EdgeInsets.all(28),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Dialog title
+                  Row(
+                    children: [
+                      Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary
+                              .withValues(alpha: 0.10),
+                          borderRadius:
+                              BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                            Icons.account_tree_rounded,
+                            color: AppColors.primary,
+                            size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          isEdit
+                              ? 'Edit Department'
+                              : 'Add Department',
+                          style: GoogleFonts.inter(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF111111),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close,
+                            size: 18,
+                            color: AppColors.muted),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Name field
+                  Text('Department Name',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF333333),
+                      )),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: nameCtrl,
+                    style: GoogleFonts.inter(fontSize: 13),
+                    validator: (v) => v == null || v.isEmpty
+                        ? 'Name is required'
+                        : null,
+                    decoration: _inputDeco(
+                        'e.g. Civil Registry Office'),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Description field
+                  Text('Description',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF333333),
+                      )),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: descCtrl,
+                    maxLines: 3,
+                    style: GoogleFonts.inter(fontSize: 13),
+                    decoration: _inputDeco(
+                        'Brief description of this department...'),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Department head
+                  Text('Department Head',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF333333),
+                      )),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7F8FC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: const Color(0xFFEEEEEE)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedHead,
+                        isExpanded: true,
+                        hint: Text('Select department head...',
+                            style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: AppColors.muted)),
+                        icon: const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 16,
+                            color: AppColors.muted),
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: const Color(0xFF333333)),
+                        items: [
+                          DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('None',
+                                style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: AppColors.muted)),
+                          ),
+                          ..._staffList.map(
+                            (s) => DropdownMenuItem<String>(
+                              value: s['uid'] as String,
+                              child: Text(
+                                  s['fullName'] as String,
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13)),
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) =>
+                            setInner(() => selectedHead = v),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(
+                              color: Color(0xFFEEEEEE)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                        ),
+                        child: Text('Cancel',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.muted,
+                            )),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          if (!formKey.currentState!
+                              .validate()) return;
+                          Navigator.pop(ctx);
+                          if (isEdit) {
+                            await _updateDept(
+                              dept!['id'] as String,
+                              nameCtrl.text.trim(),
+                              descCtrl.text.trim(),
+                              selectedHead,
+                            );
+                          } else {
+                            await _addDept(
+                              nameCtrl.text.trim(),
+                              descCtrl.text.trim(),
+                              selectedHead,
+                            );
+                          }
+                        },
+                        icon: Icon(
+                            isEdit
+                                ? Icons.save_rounded
+                                : Icons.add_rounded,
+                            size: 16),
+                        label: Text(
+                            isEdit ? 'Save Changes' : 'Add',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            )),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDeco(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: GoogleFonts.inter(
+          color: AppColors.muted, fontSize: 12),
+      filled: true,
+      fillColor: const Color(0xFFF7F8FC),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide:
+            const BorderSide(color: Color(0xFFEEEEEE)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide:
+            const BorderSide(color: Color(0xFFEEEEEE)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(
+            color: AppColors.primary, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(
+            color: Color(0xFFEF4444)),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(
+            color: Color(0xFFEF4444), width: 1.5),
+      ),
+    );
+  }
+
+  // ── Staff list dialog ──────────────────────────────────────────────────────
+  void _showStaffDialog(Map<String, dynamic> dept) {
+    final staffList = dept['staffList'] as List;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          width: 480,
+          constraints: const BoxConstraints(maxHeight: 500),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFFFF9200),
+                      Color(0xFFFF5E00)
+                    ],
+                  ),
+                  borderRadius: BorderRadius.only(
+                    topLeft:  Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.people_rounded,
+                        color: Colors.white, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            dept['name'] as String,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            '${staffList.length} staff member${staffList.length != 1 ? 's' : ''}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.white
+                                  .withValues(alpha: 0.80),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close,
+                          color: Colors.white, size: 20),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Staff list
+              Expanded(
+                child: staffList.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment:
+                              MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.badge_outlined,
+                                size: 40,
+                                color: AppColors.muted
+                                    .withValues(alpha: 0.3)),
+                            const SizedBox(height: 10),
+                            Text('No staff assigned',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: AppColors.muted,
+                                )),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: staffList.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 8),
+                        itemBuilder: (_, i) {
+                          final s = staffList[i]
+                              as Map<String, dynamic>;
+                          final initials =
+                              _initials(s['fullName'] as String);
+                          final isHead =
+                              s['uid'] == dept['headId'];
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF7F8FC),
+                              borderRadius:
+                                  BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: const Color(
+                                      0xFFEEEEEE)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36, height: 36,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.10),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(initials,
+                                        style:
+                                            GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight:
+                                              FontWeight.w700,
+                                          color:
+                                              AppColors.primary,
+                                        )),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment
+                                            .start,
+                                    children: [
+                                      Text(
+                                          s['fullName']
+                                              as String,
+                                          style:
+                                              GoogleFonts.inter(
+                                            fontSize: 13,
+                                            fontWeight:
+                                                FontWeight.w600,
+                                            color: const Color(
+                                                0xFF222222),
+                                          )),
+                                      Text(s['email'] as String,
+                                          style:
+                                              GoogleFonts.inter(
+                                            fontSize: 11,
+                                            color:
+                                                AppColors.muted,
+                                          )),
+                                    ],
+                                  ),
+                                ),
+                                if (isHead)
+                                  Container(
+                                    padding:
+                                        const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.10),
+                                      borderRadius:
+                                          BorderRadius.circular(
+                                              20),
+                                    ),
+                                    child: Text('Head',
+                                        style:
+                                            GoogleFonts.inter(
+                                          fontSize: 10,
+                                          fontWeight:
+                                              FontWeight.w700,
+                                          color:
+                                              AppColors.primary,
+                                        )),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+
+              // Footer
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF7F8FC),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft:  Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 10),
+                      ),
+                      child: Text('Close',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          )),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Firestore actions ──────────────────────────────────────────────────────
+  Future<void> _addDept(
+    String name,
+    String description,
+    String? headId,
+  ) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('departments')
+          .add({
+        'name':        name,
+        'description': description,
+        'headId':      headId ?? '',
+        'isActive':    true,
+        'createdAt':   FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        _showSnack('Department added ✓', AppColors.success);
+        _loadData();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack('Failed to add: $e', AppColors.danger);
+      }
+    }
+  }
+
+  Future<void> _updateDept(
+    String id,
+    String name,
+    String description,
+    String? headId,
+  ) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('departments')
+          .doc(id)
+          .update({
+        'name':        name,
+        'description': description,
+        'headId':      headId ?? '',
+        'updatedAt':   FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        _showSnack('Department updated ✓', AppColors.success);
+        _loadData();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack('Failed to update: $e', AppColors.danger);
+      }
+    }
+  }
+
+  Future<void> _toggleActive(String id, bool current) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('departments')
+          .doc(id)
+          .update({'isActive': !current});
+      if (mounted) {
+        _showSnack(
+          current ? 'Department deactivated' : 'Department activated ✓',
+          current ? AppColors.warning : AppColors.success,
+        );
+        _loadData();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack('Failed: $e', AppColors.danger);
+      }
+    }
+  }
+
+  void _confirmDelete(String id, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444)
+                    .withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.warning_rounded,
+                  color: Color(0xFFEF4444), size: 18),
+            ),
+            const SizedBox(width: 12),
+            Text('Delete Department',
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete "$name"? '
+          'This action cannot be undone.',
+          style: GoogleFonts.inter(
+              fontSize: 13, color: AppColors.muted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel',
+                style: GoogleFonts.inter(
+                    color: AppColors.muted)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _deleteDept(id);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('Delete',
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteDept(String id) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('departments')
+          .doc(id)
+          .delete();
+      if (mounted) {
+        _showSnack('Department deleted', AppColors.danger);
+        _loadData();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack('Failed: $e', AppColors.danger);
+      }
+    }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  void _showSnack(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg,
+            style: GoogleFonts.inter(
+                color: Colors.white,
+                fontWeight: FontWeight.w600)),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.isNotEmpty ? name[0].toUpperCase() : '?';
+  }
 }
