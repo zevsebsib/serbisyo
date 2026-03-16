@@ -32,17 +32,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final PageController _featurePageController = PageController();
   int _currentFeaturePage = 0;
 
-  // FIX: real counts from Firestore
-  int _pendingCount = 0;
+  int _pendingCount    = 0;
   int _processingCount = 0;
-  int _doneCount = 0;
+  int _doneCount       = 0;
   List<Map<String, dynamic>> _recentRequests = [];
   bool _loadingRequests = true;
 
   String get _displayName {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return 'there';
-    final name = user.displayName ?? user.email ?? '';
+    final name      = user.displayName ?? user.email ?? '';
     final firstName = name.split(' ').first.split('@').first;
     return firstName.isNotEmpty ? firstName : 'there';
   }
@@ -66,10 +65,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   final List<_NavItem> _navItems = [
-    _NavItem(LucideIcons.home, 'Home', '/'),
+    _NavItem(LucideIcons.home,          'Home',     '/'),
     _NavItem(LucideIcons.clipboardList, 'Requests', '/requests/track'),
-    _NavItem(LucideIcons.bell, 'Alerts', '/notifications'),
-    _NavItem(LucideIcons.user, 'Profile', '/profile'),
+    _NavItem(LucideIcons.bell,          'Alerts',   '/notifications'),
+    _NavItem(LucideIcons.user,          'Profile',  '/profile'),
   ];
 
   @override
@@ -78,7 +77,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _listenToRequests();
   }
 
-  // FIX: real-time Firestore listener for requests
   void _listenToRequests() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
@@ -96,19 +94,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       int pending = 0, processing = 0, done = 0;
 
       for (final doc in docs) {
-        final status = (doc['status'] ?? '').toString().toLowerCase();
+        final status =
+            (doc['status'] ?? '').toString().toLowerCase();
         if (status == 'pending') {
           pending++;
-        } else if (status == 'processing') processing++;
-        else if (status == 'completed') done++;
+        } else if (status == 'processing') {
+          processing++;
+        } else if (status == 'completed') {
+          done++;
+        }
       }
 
       if (mounted) {
         setState(() {
-          _pendingCount = pending;
+          _pendingCount    = pending;
           _processingCount = processing;
-          _doneCount = done;
-          _recentRequests = docs
+          _doneCount       = done;
+          _recentRequests  = docs
               .take(3)
               .map((d) => {'id': d.id, ...d.data()})
               .toList();
@@ -145,7 +147,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHeader(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+      decoration:
+          const BoxDecoration(gradient: AppColors.headerGradient),
       child: SafeArea(
         bottom: false,
         child: Stack(
@@ -174,7 +177,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Text(
                           'Hello, $_displayName 👋',
                           style: GoogleFonts.inter(
-                            color: Colors.white.withValues(alpha: 0.90),
+                            color:
+                                Colors.white.withValues(alpha: 0.90),
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -192,7 +196,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                   ),
-                  // FIX: notification bell with real unread badge
                   _buildNotificationBell(context),
                 ],
               ),
@@ -203,12 +206,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // FIX: bell icon now shows live unread count from Firestore
   Widget _buildNotificationBell(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      return const SizedBox.shrink();
-    }
+    if (uid == null) return const SizedBox.shrink();
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -221,7 +221,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final unread = snapshot.data?.docs.length ?? 0;
 
         return GestureDetector(
-          onTap: () => Navigator.pushNamed(context, '/notifications'),
+          onTap: () =>
+              Navigator.pushNamed(context, '/notifications'),
           child: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -278,7 +279,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         decoration: const BoxDecoration(
           color: AppColors.background,
           borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(28),
+            topLeft:  Radius.circular(28),
             topRight: Radius.circular(28),
           ),
         ),
@@ -308,30 +309,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 14),
         Row(
           children: [
-            // FIX: using real counts instead of hardcoded '0'
-            Expanded(child: _buildStatCard(
-              icon: LucideIcons.clock3,
-              label: 'Pending',
-              count: '$_pendingCount',
-              iconColor: AppColors.warning,
-              bgColor: AppColors.warningLight,
-            )),
+            Expanded(
+              child: _buildStatCard(
+                icon:      LucideIcons.clock3,
+                label:     'Pending',
+                count:     '$_pendingCount',
+                iconColor: AppColors.warning,
+                bgColor:   AppColors.warningLight,
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _buildStatCard(
-              icon: LucideIcons.loader,
-              label: 'Processing',
-              count: '$_processingCount',
-              iconColor: AppColors.primary,
-              bgColor: AppColors.cardBg,
-            )),
+            Expanded(
+              child: _buildStatCard(
+                icon:      LucideIcons.loader,
+                label:     'Processing',
+                count:     '$_processingCount',
+                iconColor: AppColors.primary,
+                bgColor:   AppColors.cardBg,
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _buildStatCard(
-              icon: LucideIcons.checkCircle2,
-              label: 'Done',
-              count: '$_doneCount',
-              iconColor: AppColors.success,
-              bgColor: AppColors.successLight,
-            )),
+            Expanded(
+              child: _buildStatCard(
+                icon:      LucideIcons.checkCircle2,
+                label:     'Done',
+                count:     '$_doneCount',
+                iconColor: AppColors.success,
+                bgColor:   AppColors.successLight,
+              ),
+            ),
           ],
         ),
       ],
@@ -346,7 +352,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required Color bgColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      padding: const EdgeInsets.symmetric(
+          horizontal: 12, vertical: 16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -364,13 +371,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Icon(icon, color: iconColor, size: 22),
           ),
           const SizedBox(height: 12),
-          // FIX: loading shimmer while fetching
           _loadingRequests
               ? Container(
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: AppColors.muted.withValues(alpha: 0.15),
+                    color: AppColors.muted
+                        .withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                 )
@@ -384,11 +391,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
           const SizedBox(height: 6),
-          Text(label,
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.muted,
-                letterSpacing: 0.4,
-              )),
+          Text(
+            label,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.muted,
+              letterSpacing: 0.4,
+            ),
+          ),
         ],
       ),
     );
@@ -410,13 +419,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Submit a Request',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    )),
+                Text(
+                  'Submit a Request',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'File service requests digitally\nwithout visiting City Hall.',
@@ -429,20 +440,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 16),
                 GestureDetector(
-                  onTap: () => Navigator.pushNamed(context, '/services'),
+                  onTap: () =>
+                      Navigator.pushNamed(context, '/services'),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 11),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                      borderRadius:
+                          BorderRadius.circular(AppRadius.pill),
                     ),
-                    child: Text('Request now',
-                        style: GoogleFonts.inter(
-                          color: AppColors.primary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        )),
+                    child: Text(
+                      'Request now',
+                      style: GoogleFonts.inter(
+                        color: AppColors.primary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -461,7 +476,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 width: 54,
                 height: 54,
                 decoration: const BoxDecoration(
-                    color: Colors.white, shape: BoxShape.circle),
+                    color: Colors.white,
+                    shape: BoxShape.circle),
                 child: const Icon(LucideIcons.clipboardList,
                     color: AppColors.primary, size: 28),
               ),
@@ -481,38 +497,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: PageView.builder(
             controller: _featurePageController,
             itemCount: _features.length,
-            onPageChanged: (i) => setState(() => _currentFeaturePage = i),
+            onPageChanged: (i) =>
+                setState(() => _currentFeaturePage = i),
             itemBuilder: (context, index) {
               final feature = _features[index];
               return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                padding: const EdgeInsets.fromLTRB(22, 20, 18, 20),
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 2),
+                padding:
+                    const EdgeInsets.fromLTRB(22, 20, 18, 20),
                 decoration: BoxDecoration(
                   color: AppColors.secondary,
-                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  borderRadius:
+                      BorderRadius.circular(AppRadius.xl),
                 ),
                 child: Row(
                   children: [
                     Expanded(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
                         children: [
-                          Text(feature.title,
-                              style: GoogleFonts.inter(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.8,
-                              )),
+                          Text(
+                            feature.title,
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.8,
+                            ),
+                          ),
                           const SizedBox(height: 8),
-                          Text(feature.desc,
-                              style: GoogleFonts.inter(
-                                color: Colors.white.withValues(alpha: 0.70),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                height: 1.4,
-                              )),
+                          Text(
+                            feature.desc,
+                            style: GoogleFonts.inter(
+                              color: Colors.white
+                                  .withValues(alpha: 0.70),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              height: 1.4,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -521,10 +548,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.10),
+                        color: Colors.white
+                            .withValues(alpha: 0.10),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(feature.icon, color: Colors.white, size: 26),
+                      child: Icon(feature.icon,
+                          color: Colors.white, size: 26),
                     ),
                   ],
                 ),
@@ -540,14 +569,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOut,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: active ? 24 : 7,
+              margin:
+                  const EdgeInsets.symmetric(horizontal: 4),
+              width:  active ? 24 : 7,
               height: 7,
               decoration: BoxDecoration(
                 color: active
                     ? AppColors.primary
                     : AppColors.muted.withValues(alpha: 0.30),
-                borderRadius: BorderRadius.circular(AppRadius.pill),
+                borderRadius:
+                    BorderRadius.circular(AppRadius.pill),
               ),
             );
           }),
@@ -565,23 +596,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Text('Recent Requests', style: AppTextStyles.h2),
             TextButton(
-              onPressed: () =>
-                  Navigator.pushNamed(context, '/profile_history'),
+              onPressed: () => Navigator.pushNamed(
+                  context, '/profile_history'),
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
                 minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                tapTargetSize:
+                    MaterialTapTargetSize.shrinkWrap,
               ),
-              child: Text('See all',
-                  style: AppTextStyles.small.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  )),
+              child: Text(
+                'See all',
+                style: AppTextStyles.small.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        // FIX: show loading, empty state, or real data
         if (_loadingRequests)
           const Center(
             child: Padding(
@@ -593,13 +626,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _buildEmptyState()
         else
           ..._recentRequests.map((item) {
-            final rawId = item['id']?.toString() ?? '';
-            final shortId = '#${rawId.length > 7 ? rawId.substring(0, 7).toUpperCase() : rawId.toUpperCase()}';
+            // ── pass rawId for navigation ──────────────────────
+            final rawId  = item['id']?.toString() ?? '';
+            final shortId =
+                '#${rawId.length > 7 ? rawId.substring(0, 7).toUpperCase() : rawId.toUpperCase()}';
             return _buildRequestCard({
-              'id': shortId,
-              'title': item['serviceName']?.toString() ?? 'Request',
+              'rawId':    rawId,
+              'id':       shortId,
+              'title':    item['serviceName']?.toString() ?? 'Request',
               'priority': item['priority']?.toString() ?? 'MEDIUM',
-              'status': (item['status']?.toString() ?? 'pending').toUpperCase(),
+              'status':   (item['status']?.toString() ?? 'pending')
+                  .toUpperCase(),
             });
           }),
       ],
@@ -617,7 +654,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         children: [
           Icon(LucideIcons.clipboardX,
-              size: 40, color: AppColors.muted.withValues(alpha: 0.5)),
+              size: 40,
+              color: AppColors.muted.withValues(alpha: 0.5)),
           const SizedBox(height: 12),
           Text('No requests yet', style: AppTextStyles.body),
           const SizedBox(height: 4),
@@ -628,9 +666,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ── Request Card — tappable, navigates to tracking screen ─────────────────
   Widget _buildRequestCard(Map<String, String> item) {
-    final status = item['status']!;
+    final status   = item['status']!;
     final priority = item['priority']!;
+    final rawId    = item['rawId'] ?? '';
 
     Color statusBg;
     Color statusFg;
@@ -650,80 +690,109 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     Color priorityColor;
     switch (priority) {
-      case 'HIGH':    priorityColor = AppColors.danger;  break;
-      case 'MEDIUM':  priorityColor = AppColors.primary; break;
-      default:        priorityColor = AppColors.success;
+      case 'HIGH':   priorityColor = AppColors.danger;  break;
+      case 'MEDIUM': priorityColor = AppColors.primary; break;
+      default:       priorityColor = AppColors.success;
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: AppShadows.card,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: AppColors.cardBg,
-              borderRadius: BorderRadius.circular(14),
+    return GestureDetector(
+      onTap: () {
+        if (rawId.isNotEmpty) {
+          Navigator.pushNamed(
+            context,
+            '/requests/track',
+            arguments: {'requestId': rawId},
+          );
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          boxShadow: AppShadows.card,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: AppColors.cardBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(LucideIcons.clipboard,
+                  color: AppColors.primary, size: 24),
             ),
-            child: const Icon(LucideIcons.clipboard,
-                color: AppColors.primary, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item['title']!,
-                    style: AppTextStyles.h3.copyWith(fontSize: 15)),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(item['id']!,
-                        style: AppTextStyles.caption
-                            .copyWith(letterSpacing: 0.5)),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 4,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.muted.withValues(alpha: 0.4),
-                        shape: BoxShape.circle,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item['title']!,
+                      style: AppTextStyles.h3
+                          .copyWith(fontSize: 15)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(item['id']!,
+                          style: AppTextStyles.caption
+                              .copyWith(letterSpacing: 0.5)),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 4,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.muted
+                              .withValues(alpha: 0.4),
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(priority,
+                      const SizedBox(width: 8),
+                      Text(
+                        priority,
                         style: AppTextStyles.caption.copyWith(
                           color: priorityColor,
                           fontWeight: FontWeight.w700,
-                        )),
-                  ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // ── Status chip + chevron arrow ────────────────────────
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: statusBg,
+                    borderRadius:
+                        BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Text(
+                    status,
+                    style: GoogleFonts.inter(
+                      color: statusFg,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  LucideIcons.chevronRight,
+                  size: 14,
+                  color: AppColors.muted.withValues(alpha: 0.5),
                 ),
               ],
             ),
-          ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: statusBg,
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-            ),
-            child: Text(status,
-                style: GoogleFonts.inter(
-                  color: statusFg,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                )),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -742,7 +811,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
+          topLeft:  Radius.circular(24),
           topRight: Radius.circular(24),
         ),
       ),
@@ -751,7 +820,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: List.generate(_navItems.length, (i) {
-            final item = _navItems[i];
+            final item     = _navItems[i];
             final isActive = _selectedNavIndex == i;
 
             return Expanded(
@@ -760,38 +829,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onTap: () {
                   setState(() => _selectedNavIndex = i);
                   if (i == 0) return;
-                  Navigator.pushReplacementNamed(context, item.route);
+                  Navigator.pushReplacementNamed(
+                      context, item.route);
                 },
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
                   children: [
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
+                      duration:
+                          const Duration(milliseconds: 200),
                       width: 42,
                       height: 32,
                       decoration: BoxDecoration(
                         color: isActive
-                            ? AppColors.primary.withValues(alpha: 0.12)
+                            ? AppColors.primary
+                                .withValues(alpha: 0.12)
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius:
+                            BorderRadius.circular(10),
                       ),
-                      child: Icon(item.icon,
-                          size: 20,
-                          color: isActive
-                              ? AppColors.primary
-                              : AppColors.muted),
+                      child: Icon(
+                        item.icon,
+                        size: 20,
+                        color: isActive
+                            ? AppColors.primary
+                            : AppColors.muted,
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    Text(item.label,
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: isActive
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: isActive
-                              ? AppColors.primary
-                              : AppColors.muted,
-                        )),
+                    Text(
+                      item.label,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: isActive
+                            ? AppColors.primary
+                            : AppColors.muted,
+                      ),
+                    ),
                   ],
                 ),
               ),

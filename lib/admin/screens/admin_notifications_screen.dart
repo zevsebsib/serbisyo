@@ -334,7 +334,9 @@ class _AdminNotificationsScreenState
                                   return;
                                 }
                                 if (!formKey.currentState!
-                                    .validate()) return;
+                                    .validate()) {
+                                  return;
+                                }
                                 setInner(
                                     () => sending = true);
                                 try {

@@ -1446,11 +1446,13 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                       ElevatedButton.icon(
                         onPressed: () async {
                           if (!formKey.currentState!
-                              .validate()) return;
+                              .validate()) {
+                            return;
+                          }
                           Navigator.pop(ctx);
                           if (isEdit) {
                             await _updateStaff(
-                              staff!['uid'] as String,
+                              staff['uid'] as String,
                               nameCtrl.text.trim(),
                               phoneCtrl.text.trim(),
                               selectedDept,

@@ -3,79 +3,78 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bottom_nav.dart';
 
 class RequestTrackingScreen extends StatelessWidget {
-  const RequestTrackingScreen({super.key});
+  final String? requestId;
+  const RequestTrackingScreen({super.key, this.requestId});
 
-  // ── Status pipeline — defines the order of steps ──────────────────────────
+  // ── Unified pipeline ─────────────────────────────────────────────
   static const List<Map<String, dynamic>> _pipeline = [
-    {
-      'key':   'submitted',
-      'label': 'Submitted',
-      'icon':  LucideIcons.clipboardList,
-    },
-    {
-      'key':   'pending',
-      'label': 'Pending Review',
-      'icon':  LucideIcons.clock3,
-    },
-    {
-      'key':   'processing',
-      'label': 'Processing',
-      'icon':  LucideIcons.loader,
-    },
-    {
-      'key':   'approved',
-      'label': 'Approved',
-      'icon':  LucideIcons.checkCircle2,
-    },
-    {
-      'key':   'ready',
-      'label': 'Ready for Pick Up',
-      'icon':  LucideIcons.packageCheck,
-    },
+    {'key': 'submitted',        'label': 'Submitted',         'icon': LucideIcons.clipboardList},
+    {'key': 'pending_review',   'label': 'Pending Review',    'icon': LucideIcons.clock3},
+    {'key': 'processing',       'label': 'Processing',        'icon': LucideIcons.loader},
+    {'key': 'approved',         'label': 'Approved',          'icon': LucideIcons.checkCircle2},
+    {'key': 'ready_for_pickup', 'label': 'Ready for Pick Up', 'icon': LucideIcons.packageCheck},
   ];
 
-  // ── Get step state relative to current status ──────────────────────────────
+  // ── Map legacy status values ──────────────────────────────────────
+  String _mapLegacyStatus(String status) {
+    switch (status) {
+      case 'pending':     return 'pending_review';
+      case 'in_progress': return 'processing';
+      case 'ready':       return 'ready_for_pickup';
+      default:            return status;
+    }
+  }
+
+  // ── Current index in pipeline ─────────────────────────────────────
+  // completed = ALL 5 steps done → return _pipeline.length
+  // rejected  = show rejection banner, not stepper
+  int _currentIndex(String status) {
+    final s = status.toLowerCase();
+    if (s == 'completed') return _pipeline.length; // ✅ all steps done
+    if (s == 'rejected')  return 0;
+    final mapped = _mapLegacyStatus(s);
+    final idx    = _pipeline.indexWhere((step) => step['key'] == mapped);
+    return idx < 0 ? 0 : idx;
+  }
+
   String _stepState(int stepIndex, int currentIndex) {
     if (stepIndex < currentIndex)  return 'completed';
     if (stepIndex == currentIndex) return 'current';
     return 'pending';
   }
 
-  int _currentIndex(String status) {
-    final idx = _pipeline.indexWhere((s) => s['key'] == status.toLowerCase());
-    return idx < 0 ? 0 : idx;
-  }
-
-  // ── Format Firestore timestamp ─────────────────────────────────────────────
   String _formatDate(dynamic value) {
     if (value == null) return '';
     if (value is Timestamp) {
       final d = value.toDate();
       const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        'Jan','Feb','Mar','Apr','May','Jun',
+        'Jul','Aug','Sep','Oct','Nov','Dec'
       ];
-      final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
-      final m = d.minute.toString().padLeft(2, '0');
+      final h      = d.hour % 12 == 0 ? 12 : d.hour % 12;
+      final m      = d.minute.toString().padLeft(2, '0');
       final period = d.hour >= 12 ? 'PM' : 'AM';
       return '${months[d.month - 1]} ${d.day}, ${d.year} · $h:$m $period';
     }
     return value.toString();
   }
 
-  // ── Get timestamp for a specific step from statusHistory ──────────────────
   String _stepDate(List<dynamic> history, String stepKey) {
     try {
       final entry = history.firstWhere(
-        (h) => h['status']?.toString().toLowerCase() == stepKey,
+        (h) {
+          final s = h['status']?.toString().toLowerCase() ?? '';
+          return s == stepKey || _mapLegacyStatus(s) == stepKey;
+        },
         orElse: () => null,
       );
       if (entry == null) return '';
-      return _formatDate(entry['timestamp']);
+      return _formatDate(entry['timestamp'] ?? entry['updatedAt']);
     } catch (_) {
       return '';
     }
@@ -83,53 +82,74 @@ class RequestTrackingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get requestId passed from history screen or bottom nav
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final requestId = args?['requestId'] as String?;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final routeArgs  = ModalRoute.of(context)?.settings.arguments
+        as Map<String, dynamic>?;
+    final resolvedId = requestId?.isNotEmpty == true
+        ? requestId
+        : routeArgs?['requestId'] as String?;
+    final uid        = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Request Status'),
         leading: IconButton(
-          icon: const Icon(LucideIcons.chevronLeft, color: AppColors.primary),
+          icon: const Icon(LucideIcons.chevronLeft,
+              color: AppColors.primary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       bottomNavigationBar: const BottomNav(selectedIndex: 1),
-      body: requestId == null || uid == null
+      body: resolvedId == null || uid == null
           ? _buildNoRequest(context)
           : StreamBuilder<DocumentSnapshot>(
-              // FIX: real-time listener on the specific request document
               stream: FirebaseFirestore.instance
                   .collection('requests')
-                  .doc(requestId)
+                  .doc(resolvedId)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                if (snapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Center(
+                      child: CircularProgressIndicator());
                 }
-
                 if (!snapshot.hasData || !snapshot.data!.exists) {
                   return _buildNoRequest(context);
                 }
 
-                final data = snapshot.data!.data() as Map<String, dynamic>;
-                final serviceName = data['serviceName']?.toString() ?? 'Service Request';
+                final data =
+                    snapshot.data!.data() as Map<String, dynamic>;
+
+                final serviceName =
+                    data['serviceName']?.toString() ?? 'Service Request';
                 final category    = data['category']?.toString() ?? '';
-                final status      = data['status']?.toString() ?? 'submitted';
-                final history     = (data['statusHistory'] as List<dynamic>?) ?? [];
-                final currentIdx  = _currentIndex(status);
-                final shortId     = '#${requestId.length > 8 ? requestId.substring(0, 8).toUpperCase() : requestId.toUpperCase()}';
-                final isRejected  = status.toLowerCase() == 'rejected';
+                final rawStatus   =
+                    data['status']?.toString() ?? 'submitted';
+                final history     =
+                    (data['statusHistory'] as List<dynamic>?) ?? [];
+                final currentIdx  = _currentIndex(rawStatus);
+                final trackingId  = data['trackingId']?.toString() ?? '';
+                final shortId     = trackingId.isNotEmpty
+                    ? trackingId
+                    : '#${resolvedId.length > 8 ? resolvedId.substring(0, 8).toUpperCase() : resolvedId.toUpperCase()}';
+
+                final isRejected  = rawStatus.toLowerCase() == 'rejected';
+                final isCompleted = rawStatus.toLowerCase() == 'completed';
+                final missingDocs =
+                    List<String>.from(data['missingDocuments'] ?? []);
+                final finalDocUrl =
+                    data['finalDocumentUrl']?.toString() ?? '';
+                final hasMissing  = missingDocs.isNotEmpty;
+                final hasFinalDoc = finalDocUrl.isNotEmpty;
+                final assignedTo  =
+                    data['assignedTo']?.toString() ?? '';
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 32, vertical: 24),
                   child: Column(
                     children: [
-                      // ── Request Header ───────────────────────────────────
+                      // ── Header ───────────────────────────────────
                       Column(
                         children: [
                           Text(
@@ -139,24 +159,31 @@ class RequestTrackingScreen extends StatelessWidget {
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black.withValues(alpha: 0.4),
+                              color: Colors.black
+                                  .withValues(alpha: 0.4),
                               letterSpacing: 2.0,
                             ),
                           ),
                           const SizedBox(height: 16),
+
+                          // Icon card
                           Container(
-                            width: 80,
-                            height: 96,
+                            width: 80, height: 96,
                             decoration: BoxDecoration(
                               color: isRejected
                                   ? AppColors.danger
-                                  : AppColors.primary,
-                              borderRadius: BorderRadius.circular(24),
+                                  : isCompleted
+                                      ? AppColors.success
+                                      : AppColors.primary,
+                              borderRadius:
+                                  BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
                                   color: (isRejected
                                           ? AppColors.danger
-                                          : AppColors.primary)
+                                          : isCompleted
+                                              ? AppColors.success
+                                              : AppColors.primary)
                                       .withValues(alpha: 0.2),
                                   blurRadius: 20,
                                   offset: const Offset(0, 10),
@@ -164,22 +191,30 @@ class RequestTrackingScreen extends StatelessWidget {
                               ],
                             ),
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisAlignment:
+                                  MainAxisAlignment.center,
                               children: [
                                 Icon(
                                   isRejected
                                       ? LucideIcons.xCircle
-                                      : LucideIcons.fileText,
+                                      : isCompleted
+                                          ? LucideIcons.checkCircle2
+                                          : LucideIcons.fileText,
                                   color: Colors.white,
                                   size: 40,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  isRejected ? 'REJECT' : 'FILE',
+                                  isRejected
+                                      ? 'REJECT'
+                                      : isCompleted
+                                          ? 'DONE'
+                                          : 'FILE',
                                   style: GoogleFonts.inter(
                                     fontSize: 8,
                                     fontWeight: FontWeight.w900,
-                                    color: Colors.white.withValues(alpha: 0.6),
+                                    color: Colors.white
+                                        .withValues(alpha: 0.6),
                                   ),
                                 ),
                               ],
@@ -187,7 +222,6 @@ class RequestTrackingScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
 
-                          // Service name
                           Text(
                             serviceName,
                             style: GoogleFonts.inter(
@@ -199,10 +233,8 @@ class RequestTrackingScreen extends StatelessWidget {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 6),
-
-                          // Request ID
                           Text(
-                            'REQUEST ID: $shortId',
+                            'TRACKING ID: $shortId',
                             style: GoogleFonts.inter(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
@@ -210,6 +242,47 @@ class RequestTrackingScreen extends StatelessWidget {
                               letterSpacing: 1.0,
                             ),
                           ),
+
+                          // Status badge
+                          const SizedBox(height: 10),
+                          _buildStatusBadge(rawStatus),
+
+                          // Assigned badge
+                          if (assignedTo.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding:
+                                  const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2196F3)
+                                    .withValues(alpha: 0.10),
+                                borderRadius:
+                                    BorderRadius.circular(
+                                        AppRadius.pill),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                      LucideIcons.userCheck,
+                                      size: 11,
+                                      color: Color(0xFF2196F3)),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Assigned to staff',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          const Color(0xFF2196F3),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
 
                           // Rejected banner
                           if (isRejected) ...[
@@ -220,24 +293,246 @@ class RequestTrackingScreen extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFEEEE),
                                 borderRadius:
-                                    BorderRadius.circular(AppRadius.lg),
+                                    BorderRadius.circular(
+                                        AppRadius.lg),
                                 border: Border.all(
                                     color: AppColors.danger
                                         .withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(LucideIcons.alertCircle,
-                                      color: AppColors.danger, size: 18),
+                                  const Icon(
+                                      LucideIcons.alertCircle,
+                                      color: AppColors.danger,
+                                      size: 18),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
-                                      data['rejectionReason']?.toString() ??
-                                          'Your request was rejected. Please contact support for more info.',
+                                      data['rejectionReason']
+                                                  ?.toString()
+                                                  .isNotEmpty ==
+                                              true
+                                          ? data['rejectionReason']
+                                              .toString()
+                                          : 'Your request was rejected. Please contact support.',
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         color: AppColors.danger,
                                         height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          // Completed banner (no final doc)
+                          if (isCompleted && !hasFinalDoc) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppColors.successLight,
+                                borderRadius:
+                                    BorderRadius.circular(
+                                        AppRadius.lg),
+                                border: Border.all(
+                                    color: AppColors.success
+                                        .withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                      LucideIcons.checkCircle2,
+                                      color: AppColors.success,
+                                      size: 18),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Your request has been completed. Please visit City Hall to claim your document.',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: AppColors.success,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          // Missing documents alert
+                          if (hasMissing) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppColors.warningLight,
+                                borderRadius:
+                                    BorderRadius.circular(
+                                        AppRadius.lg),
+                                border: Border.all(
+                                    color: AppColors.warning
+                                        .withValues(alpha: 0.4)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    const Icon(
+                                        LucideIcons.alertTriangle,
+                                        color: AppColors.warning,
+                                        size: 16),
+                                    const SizedBox(width: 8),
+                                    Text('Action Required',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight:
+                                              FontWeight.w800,
+                                          color: AppColors.warning,
+                                        )),
+                                  ]),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'The following documents are missing or incomplete:',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: Colors.black
+                                            .withValues(alpha: 0.6)),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ...missingDocs.map((doc) =>
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(
+                                                bottom: 6),
+                                        child: Row(children: [
+                                          Container(
+                                            width: 6, height: 6,
+                                            decoration:
+                                                const BoxDecoration(
+                                              color:
+                                                  AppColors.warning,
+                                              shape:
+                                                  BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(doc,
+                                                style: GoogleFonts
+                                                    .inter(
+                                                  fontSize: 12,
+                                                  fontWeight:
+                                                      FontWeight.w600,
+                                                  color: Colors.black
+                                                      .withValues(
+                                                          alpha: 0.75),
+                                                )),
+                                          ),
+                                        ]),
+                                      )),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Please visit the City Hall office to submit the missing documents.',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: AppColors.warning,
+                                      height: 1.4,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          // Final document download
+                          if (hasFinalDoc) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppColors.successLight,
+                                borderRadius:
+                                    BorderRadius.circular(
+                                        AppRadius.lg),
+                                border: Border.all(
+                                    color: AppColors.success
+                                        .withValues(alpha: 0.4)),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(children: [
+                                    const Icon(
+                                        LucideIcons.checkCircle2,
+                                        color: AppColors.success,
+                                        size: 16),
+                                    const SizedBox(width: 8),
+                                    Text('Your Document is Ready!',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight:
+                                              FontWeight.w800,
+                                          color: AppColors.success,
+                                        )),
+                                  ]),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Your processed document is available for download.',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: Colors.black
+                                            .withValues(alpha: 0.6),
+                                        height: 1.4),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () async {
+                                        final uri =
+                                            Uri.parse(finalDocUrl);
+                                        if (await canLaunchUrl(
+                                            uri)) {
+                                          await launchUrl(uri,
+                                              mode: LaunchMode
+                                                  .externalApplication);
+                                        }
+                                      },
+                                      icon: const Icon(
+                                          LucideIcons.download,
+                                          size: 16),
+                                      label: Text(
+                                          'Download Document',
+                                          style: GoogleFonts.inter(
+                                            fontWeight:
+                                                FontWeight.w700,
+                                            fontSize: 13,
+                                          )),
+                                      style:
+                                          ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            AppColors.success,
+                                        foregroundColor:
+                                            Colors.white,
+                                        elevation: 0,
+                                        padding:
+                                            const EdgeInsets
+                                                .symmetric(
+                                                vertical: 12),
+                                        shape:
+                                            RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(
+                                                  AppRadius.lg),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -250,74 +545,94 @@ class RequestTrackingScreen extends StatelessWidget {
 
                       const SizedBox(height: 32),
                       Container(
-                          height: 1,
-                          color: Colors.black.withValues(alpha: 0.05),
-                          width: double.infinity),
+                        height: 1,
+                        color: Colors.black.withValues(alpha: 0.05),
+                        width: double.infinity,
+                      ),
                       const SizedBox(height: 40),
 
-                      // ── Stepper ──────────────────────────────────────────
+                      // ── Stepper ──────────────────────────────────
                       if (!isRejected)
                         ListView.builder(
                           shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
+                          physics:
+                              const NeverScrollableScrollPhysics(),
                           itemCount: _pipeline.length,
                           itemBuilder: (context, idx) {
                             final step      = _pipeline[idx];
-                            final stepState = _stepState(idx, currentIdx);
-                            final isLast    = idx == _pipeline.length - 1;
-                            final date      = _stepDate(history, step['key']);
+                            final stepState =
+                                _stepState(idx, currentIdx);
+                            final isLast =
+                                idx == _pipeline.length - 1;
+                            final date = _stepDate(
+                                history, step['key'] as String);
 
                             return IntrinsicHeight(
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
-                                  // ── Step indicator & line ────────────────
+                                  // Circle + connector line
                                   Column(
                                     children: [
                                       Container(
-                                        width: 40,
-                                        height: 40,
+                                        width: 40, height: 40,
                                         decoration: BoxDecoration(
-                                          color: stepState == 'completed'
+                                          color: stepState ==
+                                                  'completed'
                                               ? AppColors.primary
                                               : Colors.white,
                                           shape: BoxShape.circle,
                                           border: Border.all(
-                                            color: stepState == 'pending'
+                                            color: stepState ==
+                                                    'pending'
                                                 ? Colors.black
-                                                    .withValues(alpha: 0.05)
+                                                    .withValues(
+                                                        alpha: 0.05)
                                                 : AppColors.primary,
                                             width: 4,
                                           ),
-                                          boxShadow: stepState == 'completed'
+                                          boxShadow: stepState ==
+                                                  'completed'
                                               ? [
                                                   BoxShadow(
-                                                    color: AppColors.primary
-                                                        .withValues(alpha: 0.3),
+                                                    color: AppColors
+                                                        .primary
+                                                        .withValues(
+                                                            alpha:
+                                                                0.3),
                                                     blurRadius: 10,
                                                     offset:
-                                                        const Offset(0, 4),
+                                                        const Offset(
+                                                            0, 4),
                                                   )
                                                 ]
                                               : null,
                                         ),
                                         child: Center(
-                                          child: stepState == 'completed'
+                                          child: stepState ==
+                                                  'completed'
                                               ? const Icon(
                                                   LucideIcons.check,
-                                                  color: Colors.white,
-                                                  size: 20,
-                                                )
+                                                  color:
+                                                      Colors.white,
+                                                  size: 20)
                                               : Text(
                                                   '${idx + 1}',
-                                                  style: GoogleFonts.inter(
+                                                  style: GoogleFonts
+                                                      .inter(
                                                     fontSize: 12,
-                                                    fontWeight: FontWeight.w900,
-                                                    color: stepState == 'current'
-                                                        ? AppColors.primary
+                                                    fontWeight:
+                                                        FontWeight
+                                                            .w900,
+                                                    color: stepState ==
+                                                            'current'
+                                                        ? AppColors
+                                                            .primary
                                                         : Colors.black
                                                             .withValues(
-                                                                alpha: 0.1),
+                                                                alpha:
+                                                                    0.1),
                                                   ),
                                                 ),
                                         ),
@@ -326,62 +641,79 @@ class RequestTrackingScreen extends StatelessWidget {
                                         Expanded(
                                           child: Container(
                                             width: 2,
-                                            color: stepState == 'completed'
+                                            color: stepState ==
+                                                    'completed'
                                                 ? AppColors.primary
-                                                    .withValues(alpha: 0.3)
+                                                    .withValues(
+                                                        alpha: 0.3)
                                                 : Colors.black
-                                                    .withValues(alpha: 0.05),
-                                            margin: const EdgeInsets.symmetric(
-                                                vertical: 4),
+                                                    .withValues(
+                                                        alpha: 0.05),
+                                            margin: const EdgeInsets
+                                                .symmetric(
+                                                    vertical: 4),
                                           ),
                                         ),
                                     ],
                                   ),
-
                                   const SizedBox(width: 24),
 
-                                  // ── Step content ─────────────────────────
+                                  // Label + date + badge
                                   Expanded(
                                     child: Container(
-                                      padding: const EdgeInsets.only(
-                                          top: 8, bottom: 32),
+                                      padding:
+                                          const EdgeInsets.only(
+                                              top: 8, bottom: 32),
                                       child: Row(
                                         mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
+                                            MainAxisAlignment
+                                                .spaceBetween,
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
                                           Column(
                                             crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                                CrossAxisAlignment
+                                                    .start,
                                             children: [
                                               Text(
-                                                step['label'],
-                                                style: GoogleFonts.inter(
+                                                step['label']
+                                                    as String,
+                                                style: GoogleFonts
+                                                    .inter(
                                                   fontSize: 14,
-                                                  fontWeight: FontWeight.w900,
-                                                  color: stepState == 'pending'
+                                                  fontWeight:
+                                                      FontWeight.w900,
+                                                  color: stepState ==
+                                                          'pending'
                                                       ? Colors.black
                                                           .withValues(
-                                                              alpha: 0.2)
+                                                              alpha:
+                                                                  0.2)
                                                       : Colors.black,
                                                 ),
                                               ),
                                               if (date.isNotEmpty)
                                                 Padding(
                                                   padding:
-                                                      const EdgeInsets.only(
-                                                          top: 4),
+                                                      const EdgeInsets
+                                                          .only(
+                                                              top: 4),
                                                   child: Text(
                                                     date,
-                                                    style: GoogleFonts.inter(
+                                                    style: GoogleFonts
+                                                        .inter(
                                                       fontSize: 10,
                                                       fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Colors.black
+                                                          FontWeight
+                                                              .bold,
+                                                      color: Colors
+                                                          .black
                                                           .withValues(
-                                                              alpha: 0.3),
-                                                      letterSpacing: -0.5,
+                                                              alpha:
+                                                                  0.3),
+                                                      letterSpacing:
+                                                          -0.5,
                                                     ),
                                                   ),
                                                 ),
@@ -390,19 +722,25 @@ class RequestTrackingScreen extends StatelessWidget {
                                           Text(
                                             stepState == 'completed'
                                                 ? 'DONE'
-                                                : stepState == 'current'
+                                                : stepState ==
+                                                        'current'
                                                     ? 'IN PROGRESS'
                                                     : 'PENDING',
                                             style: GoogleFonts.inter(
                                               fontSize: 10,
-                                              fontWeight: FontWeight.w900,
-                                              color: stepState == 'completed'
+                                              fontWeight:
+                                                  FontWeight.w900,
+                                              color: stepState ==
+                                                      'completed'
                                                   ? AppColors.success
-                                                  : stepState == 'current'
-                                                      ? AppColors.primary
+                                                  : stepState ==
+                                                          'current'
+                                                      ? AppColors
+                                                          .primary
                                                       : Colors.black
                                                           .withValues(
-                                                              alpha: 0.2),
+                                                              alpha:
+                                                                  0.2),
                                               letterSpacing: -0.5,
                                             ),
                                           ),
@@ -425,19 +763,51 @@ class RequestTrackingScreen extends StatelessWidget {
     );
   }
 
-  // ── No request selected state ──────────────────────────────────────────────
+  Widget _buildStatusBadge(String rawStatus) {
+    final Map<String, Map<String, dynamic>> styles = {
+      'submitted':        {'label': 'Submitted',         'color': const Color(0xFF5C6BC0)},
+      'pending_review':   {'label': 'Pending Review',    'color': const Color(0xFFF59E0B)},
+      'pending':          {'label': 'Pending Review',    'color': const Color(0xFFF59E0B)},
+      'processing':       {'label': 'Processing',        'color': const Color(0xFF3B82F6)},
+      'in_progress':      {'label': 'Processing',        'color': const Color(0xFF3B82F6)},
+      'approved':         {'label': 'Approved',          'color': const Color(0xFF8B5CF6)},
+      'ready_for_pickup': {'label': 'Ready for Pick Up', 'color': AppColors.primary},
+      'ready':            {'label': 'Ready for Pick Up', 'color': AppColors.primary},
+      'completed':        {'label': 'Completed',         'color': AppColors.success},
+      'rejected':         {'label': 'Rejected',          'color': AppColors.danger},
+    };
+
+    final style = styles[rawStatus.toLowerCase()] ??
+        {'label': rawStatus, 'color': AppColors.muted};
+    final color = style['color'] as Color;
+    final label = style['label'] as String;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Text(label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: color,
+          )),
+    );
+  }
+
   Widget _buildNoRequest(BuildContext context) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 100,
-            height: 100,
+            width: 100, height: 100,
             decoration: const BoxDecoration(
-              color: AppColors.cardBg,
-              shape: BoxShape.circle,
-            ),
+                color: AppColors.cardBg, shape: BoxShape.circle),
             child: const Icon(LucideIcons.clipboardX,
                 color: AppColors.primary, size: 46),
           ),
@@ -448,23 +818,22 @@ class RequestTrackingScreen extends StatelessWidget {
               style: AppTextStyles.bodyMuted),
           const SizedBox(height: 24),
           GestureDetector(
-            onTap: () =>
-                Navigator.pushReplacementNamed(context, '/profile_history'),
+            onTap: () => Navigator.pushReplacementNamed(
+                context, '/profile_history'),
             child: Container(
               padding: const EdgeInsets.symmetric(
                   horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
                 gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(AppRadius.pill),
+                borderRadius:
+                    BorderRadius.circular(AppRadius.pill),
               ),
-              child: Text(
-                'View History',
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
+              child: Text('View History',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  )),
             ),
           ),
         ],

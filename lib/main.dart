@@ -29,7 +29,8 @@ import 'package:serbisyo_alisto/theme/app_theme.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform);
   debugPrint('Background message: ${message.notification?.title}');
 }
 
@@ -40,7 +41,6 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // FCM only for mobile — not needed on web admin
   if (!kIsWeb) {
     await FirebaseMessaging.instance.requestPermission(
       alert: true,
@@ -51,7 +51,6 @@ Future<void> main() async {
   }
 
   if (!kIsWeb) {
-    // Mobile only — force portrait
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
@@ -73,8 +72,9 @@ class SerbisyoAlistoApp extends StatefulWidget {
 
 class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
     with WidgetsBindingObserver {
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  String? _currentRoute;
+  final GlobalKey<NavigatorState> _navigatorKey =
+      GlobalKey<NavigatorState>();
+  String?   _currentRoute;
   DateTime? _pausedAt;
 
   @override
@@ -113,7 +113,6 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
       title: 'SerbisyoAlisto',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      // FIX: web starts at admin login, mobile starts at splash
       initialRoute: kIsWeb ? '/admin/login' : '/splash',
       onGenerateRoute: (settings) {
         _currentRoute = settings.name;
@@ -129,7 +128,7 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
             page = AdminShellScreen();
             break;
 
-          // ── Mobile routes ──────────────────────────────────────
+          // ── Auth routes ────────────────────────────────────────
           case '/splash':
             page = const SplashScreen();
             break;
@@ -142,27 +141,57 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
           case '/forgot_password':
             page = const ForgotPasswordScreen();
             break;
+
+          // ── Main dashboard ─────────────────────────────────────
           case '/':
             page = const DashboardScreen();
             break;
+
+          // ── Services ──────────────────────────────────────────
           case '/services':
             page = const ServicesScreen();
             break;
           case '/service_detail':
-            final args = settings.arguments as Map<String, dynamic>?;
+            final args =
+                settings.arguments as Map<String, dynamic>?;
             page = ServiceCategoryDetailScreen(
                 categoryId: args?['categoryId'] ?? 'mayor');
             break;
+
+          // ── Service form ───────────────────────────────────────
+          // Passes all 4 fields so admin panel receives full data
           case '/service_form':
-            final args = settings.arguments as Map<String, dynamic>?;
-            page = ServiceFormScreen(serviceName: args?['serviceName']);
+            final args =
+                settings.arguments as Map<String, dynamic>?;
+            page = ServiceFormScreen(
+              serviceName:  args?['serviceName'],
+              category:     args?['category'],
+              department:   args?['department'],
+              departmentId: args?['departmentId'],
+            );
             break;
+
+          // ── Submission receipt ─────────────────────────────────
+          // Args are read inside the screen via ModalRoute
+          case '/submission_receipt':
+            page = const SubmissionReceiptScreen();
+            break;
+
+          // ── Request tracking ───────────────────────────────────
+          // Args are read inside the screen via ModalRoute
+          case '/requests/track':
+            page = const RequestTrackingScreen();
+            break;
+
+          // ── Notifications ──────────────────────────────────────
           case '/notifications':
             page = const NotificationsScreen();
             break;
           case '/alerts':
             page = const AlertsDemoScreen();
             break;
+
+          // ── Profile ────────────────────────────────────────────
           case '/profile':
             page = const ProfileScreen();
             break;
@@ -181,22 +210,21 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
           case '/profile_settings':
             page = const SettingsScreen();
             break;
+
+          // ── Status screens ─────────────────────────────────────
           case '/status_success':
             page = const StatusScreen(isSuccess: true);
             break;
           case '/status_failed':
             page = const StatusScreen(isSuccess: false);
             break;
-          case '/requests/receipt':
-            page = const SubmissionReceiptScreen();
-            break;
-          case '/requests/track':
-            page = const RequestTrackingScreen();
-            break;
+
+          // ── 404 ───────────────────────────────────────────────
           default:
             page = const NotFoundScreen();
         }
 
+        // No animation for splash
         if (settings.name == '/splash') {
           return PageRouteBuilder(
             settings: settings,
@@ -206,6 +234,7 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
           );
         }
 
+        // Fade transition for all other routes
         return PageRouteBuilder(
           settings: settings,
           transitionDuration: const Duration(milliseconds: 220),
@@ -213,7 +242,8 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
           pageBuilder: (context, anim, secAnim) => page,
           transitionsBuilder: (context, anim, secAnim, child) {
             return FadeTransition(
-              opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+              opacity: CurvedAnimation(
+                  parent: anim, curve: Curves.easeOut),
               child: child,
             );
           },
@@ -233,14 +263,28 @@ class NotFoundScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+            const Icon(Icons.error_outline,
+                size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text('Page Not Found',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Page Not Found',
+              style: TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => Navigator.pushReplacementNamed(context, '/'),
-              child: const Text('Back to Home'),
+              onPressed: () =>
+                  Navigator.pushReplacementNamed(context, '/'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF8000),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 28, vertical: 14),
+              ),
+              child: const Text('Back to Home',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ],
         ),

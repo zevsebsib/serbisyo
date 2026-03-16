@@ -34,7 +34,7 @@ class _AdminDepartmentsScreenState
     super.dispose();
   }
 
-  // ── Data loading ───────────────────────────────────────────────────────────
+  // ── Data loading ──────────────────────────────────────────────────────────
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
@@ -64,8 +64,8 @@ class _AdminDepartmentsScreenState
       // Build map: deptId → staff list
       final Map<String, List<Map<String, dynamic>>> deptStaffMap = {};
       for (final s in staffDeptSnap.docs) {
-        final data     = s.data();
-        final deptId   = data['departmentId']?.toString() ?? '';
+        final data   = s.data();
+        final deptId = data['departmentId']?.toString() ?? '';
         if (deptId.isEmpty) continue;
         deptStaffMap.putIfAbsent(deptId, () => []);
         deptStaffMap[deptId]!.add({
@@ -172,8 +172,7 @@ class _AdminDepartmentsScreenState
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: const Color(0xFFEEEEEE)),
+            border: Border.all(color: const Color(0xFFEEEEEE)),
           ),
           child: IconButton(
             icon: const Icon(Icons.refresh_rounded,
@@ -315,9 +314,9 @@ class _AdminDepartmentsScreenState
 
     return Row(
       children: stats.asMap().entries.map((entry) {
-        final i     = entry.key;
-        final s     = entry.value;
-        final color = s['color'] as Color;
+        final i      = entry.key;
+        final s      = entry.value;
+        final color  = s['color'] as Color;
         final isLast = i == stats.length - 1;
         return Expanded(
           child: Container(
@@ -328,8 +327,7 @@ class _AdminDepartmentsScreenState
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color:
-                      Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -348,8 +346,7 @@ class _AdminDepartmentsScreenState
                 ),
                 const SizedBox(width: 12),
                 Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('${s['value']}',
                         style: GoogleFonts.inter(
@@ -469,8 +466,7 @@ class _AdminDepartmentsScreenState
                   width: 40, height: 40,
                   decoration: BoxDecoration(
                     color: isActive
-                        ? AppColors.primary
-                            .withValues(alpha: 0.12)
+                        ? AppColors.primary.withValues(alpha: 0.12)
                         : const Color(0xFFEEEEEE),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -485,8 +481,7 @@ class _AdminDepartmentsScreenState
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(dept['name'] as String,
                           overflow: TextOverflow.ellipsis,
@@ -531,8 +526,8 @@ class _AdminDepartmentsScreenState
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   itemBuilder: (_) => [
-                    _popupItem('edit',   Icons.edit_rounded,
-                        'Edit',   const Color(0xFF5C6BC0)),
+                    _popupItem('edit', Icons.edit_rounded,
+                        'Edit', const Color(0xFF5C6BC0)),
                     _popupItem('staff',
                         Icons.people_rounded,
                         'View Staff',
@@ -594,8 +589,7 @@ class _AdminDepartmentsScreenState
                             Expanded(
                               child: Text(
                                 dept['headName'] as String,
-                                overflow:
-                                    TextOverflow.ellipsis,
+                                overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.inter(
                                   fontSize: 11,
                                   color: AppColors.muted,
@@ -675,10 +669,10 @@ class _AdminDepartmentsScreenState
 
   // ── Add / Edit dialog ──────────────────────────────────────────────────────
   void _showDeptDialog({Map<String, dynamic>? dept}) {
-    final isEdit       = dept != null;
-    final nameCtrl     = TextEditingController(
+    final isEdit   = dept != null;
+    final nameCtrl = TextEditingController(
         text: isEdit ? dept['name'] as String : '');
-    final descCtrl     = TextEditingController(
+    final descCtrl = TextEditingController(
         text: isEdit ? dept['description'] as String : '');
     String? selectedHead = isEdit &&
             (dept['headId'] as String?)?.isNotEmpty == true
@@ -858,12 +852,15 @@ class _AdminDepartmentsScreenState
                       const SizedBox(width: 10),
                       ElevatedButton.icon(
                         onPressed: () async {
-                          if (!formKey.currentState!
-                              .validate()) return;
+                          // ✅ FIX 1: curly braces added
+                          if (!formKey.currentState!.validate()) {
+                            return;
+                          }
                           Navigator.pop(ctx);
                           if (isEdit) {
+                            // ✅ FIX 2: removed unnecessary ! on dept
                             await _updateDept(
-                              dept!['id'] as String,
+                              dept['id'] as String,
                               nameCtrl.text.trim(),
                               descCtrl.text.trim(),
                               selectedHead,
@@ -935,8 +932,8 @@ class _AdminDepartmentsScreenState
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-            color: Color(0xFFEF4444)),
+        borderSide:
+            const BorderSide(color: Color(0xFFEF4444)),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -1067,8 +1064,7 @@ class _AdminDepartmentsScreenState
                                   ),
                                   child: Center(
                                     child: Text(initials,
-                                        style:
-                                            GoogleFonts.inter(
+                                        style: GoogleFonts.inter(
                                           fontSize: 13,
                                           fontWeight:
                                               FontWeight.w700,
@@ -1081,14 +1077,11 @@ class _AdminDepartmentsScreenState
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment
-                                            .start,
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                          s['fullName']
-                                              as String,
-                                          style:
-                                              GoogleFonts.inter(
+                                          s['fullName'] as String,
+                                          style: GoogleFonts.inter(
                                             fontSize: 13,
                                             fontWeight:
                                                 FontWeight.w600,
@@ -1096,11 +1089,9 @@ class _AdminDepartmentsScreenState
                                                 0xFF222222),
                                           )),
                                       Text(s['email'] as String,
-                                          style:
-                                              GoogleFonts.inter(
+                                          style: GoogleFonts.inter(
                                             fontSize: 11,
-                                            color:
-                                                AppColors.muted,
+                                            color: AppColors.muted,
                                           )),
                                     ],
                                   ),
@@ -1115,17 +1106,14 @@ class _AdminDepartmentsScreenState
                                       color: AppColors.primary
                                           .withValues(alpha: 0.10),
                                       borderRadius:
-                                          BorderRadius.circular(
-                                              20),
+                                          BorderRadius.circular(20),
                                     ),
                                     child: Text('Head',
-                                        style:
-                                            GoogleFonts.inter(
+                                        style: GoogleFonts.inter(
                                           fontSize: 10,
                                           fontWeight:
                                               FontWeight.w700,
-                                          color:
-                                              AppColors.primary,
+                                          color: AppColors.primary,
                                         )),
                                   ),
                               ],

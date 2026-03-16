@@ -1,23 +1,39 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bottom_nav.dart';
 
 class ServiceFormScreen extends StatefulWidget {
   final String? serviceName;
-  const ServiceFormScreen({super.key, this.serviceName});
+  final String? category;
+  final String? department;
+  final String? departmentId;
+
+  const ServiceFormScreen({
+    super.key,
+    this.serviceName,
+    this.category,
+    this.department,
+    this.departmentId,
+  });
 
   @override
   State<ServiceFormScreen> createState() => _ServiceFormScreenState();
 }
 
 class _ServiceFormScreenState extends State<ServiceFormScreen> {
+  // ── Cloudinary config ────────────────────────────────────────────
+  static const String _cloudName    = 'dmsgbxyzh';   // ← paste yours
+  static const String _uploadPreset = 'serbisyo_alisto';   // ← your preset
+
+  // ── Requirements ─────────────────────────────────────────────────
   final List<String> _requirements = [
     'Barangay Clearance',
     'Valid ID',
@@ -25,15 +41,27 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
   ];
 
   final Map<int, File> _uploadedFiles = {};
-  final Map<int, bool> _isUploading = {};
+  final Map<int, bool> _isUploading   = {};
   bool _isSubmitting = false;
 
-  int get _uploadCount => _uploadedFiles.length;
-  bool get _allUploaded => _uploadCount == _requirements.length;
-  double get _progress => _requirements.isEmpty
-      ? 0
-      : _uploadCount / _requirements.length;
+  int    get _uploadCount => _uploadedFiles.length;
+  bool   get _allUploaded => _uploadCount == _requirements.length;
+  double get _progress    =>
+      _requirements.isEmpty ? 0 : _uploadCount / _requirements.length;
 
+  // ── Generate tracking ID ─────────────────────────────────────────
+  String _generateTrackingId() {
+    final now   = DateTime.now();
+    final year  = now.year.toString().substring(2);
+    final month = now.month.toString().padLeft(2, '0');
+    final day   = now.day.toString().padLeft(2, '0');
+    final rand  = (now.millisecondsSinceEpoch % 10000)
+        .toString()
+        .padLeft(4, '0');
+    return 'SA-$year$month$day-$rand';
+  }
+
+  // ── Pick file ────────────────────────────────────────────────────
   Future<void> _pickFile(int index) async {
     setState(() => _isUploading[index] = true);
     try {
@@ -51,50 +79,67 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
     }
   }
 
-  void _removeFile(int index) {
-    setState(() => _uploadedFiles.remove(index));
+  void _removeFile(int index) => setState(() => _uploadedFiles.remove(index));
+
+  // ── Upload single file to Cloudinary ────────────────────────────
+  Future<String> _uploadToCloudinary(File file, String docName) async {
+    final uri = Uri.parse(
+        'https://api.cloudinary.com/v1_1/$_cloudName/auto/upload');
+
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['upload_preset'] = _uploadPreset
+      ..fields['folder']        = 'serbisyo_alisto'
+      ..fields['public_id']     =
+          '${docName.toLowerCase().replaceAll(' ', '_')}_'
+          '${DateTime.now().millisecondsSinceEpoch}'
+      ..files.add(await http.MultipartFile.fromPath('file', file.path));
+
+    final streamed = await request.send();
+    final body     = await streamed.stream.bytesToString();
+    final jsonData = jsonDecode(body) as Map<String, dynamic>;
+
+    if (streamed.statusCode == 200) {
+      return jsonData['secure_url'] as String;
+    } else {
+      final error = jsonData['error']?['message'] ?? 'Unknown error';
+      throw Exception('Cloudinary upload failed: $error');
+    }
   }
 
+  // ── Submit handler ───────────────────────────────────────────────
   Future<void> _handleSubmit() async {
     if (!_allUploaded) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              const Icon(LucideIcons.alertCircle,
-                  color: Colors.white, size: 18),
-              const SizedBox(width: 10),
-              Text(
-                  'Please upload all ${_requirements.length} required documents.'),
-            ],
-          ),
+          content: Row(children: [
+            const Icon(LucideIcons.alertCircle,
+                color: Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Text(
+                'Please upload all ${_requirements.length} required documents.'),
+          ]),
           backgroundColor: AppColors.danger,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.md),
-          ),
+              borderRadius: BorderRadius.circular(AppRadius.md)),
         ),
       );
       return;
     }
 
-    // Confirmation dialog before submitting
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
+            borderRadius: BorderRadius.circular(AppRadius.lg)),
         title: Text('Submit request?', style: AppTextStyles.h2),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'You are submitting a request for:',
-              style: AppTextStyles.bodyMuted,
-            ),
+            Text('You are submitting a request for:',
+                style: AppTextStyles.bodyMuted),
             const SizedBox(height: 8),
             Text(
               widget.serviceName ?? 'Service',
@@ -104,10 +149,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'This cannot be undone once submitted.',
-              style: AppTextStyles.small,
-            ),
+            Text('This cannot be undone once submitted.',
+                style: AppTextStyles.small),
           ],
         ),
         actions: [
@@ -121,8 +164,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
+                  borderRadius: BorderRadius.circular(AppRadius.md)),
             ),
             child: const Text('Submit'),
           ),
@@ -131,38 +173,142 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
     );
 
     if (confirmed != true) return;
-
     setState(() => _isSubmitting = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser!;
+      final user       = FirebaseAuth.instance.currentUser!;
       final requestRef =
           FirebaseFirestore.instance.collection('requests').doc();
+      final trackingId = _generateTrackingId();
 
-      for (final entry in _uploadedFiles.entries) {
-        final fileName =
-            entry.value.path.split('/').last;
-        final ref = FirebaseStorage.instance.ref(
-            'uploads/${user.uid}/${widget.serviceName}/$fileName');
-        await ref.putFile(entry.value);
+      // ── Show uploading snackbar ────────────────────────────────
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(children: [
+              const SizedBox(
+                width: 16, height: 16,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              const Text('Uploading documents...'),
+            ]),
+            backgroundColor: AppColors.primary,
+            duration: const Duration(seconds: 60),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md)),
+          ),
+        );
       }
 
+      // ── Upload files to Cloudinary ─────────────────────────────
+      final Map<String, String> documentUrls = {};
+      for (final entry in _uploadedFiles.entries) {
+        final docName = _requirements[entry.key];
+        final url     = await _uploadToCloudinary(entry.value, docName);
+        documentUrls[docName] = url;
+      }
+
+      if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      // ── Get citizen full name ──────────────────────────────────
+      String citizenName = user.displayName ?? user.email ?? 'Unknown';
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (userDoc.exists) {
+          citizenName = userDoc.data()?['fullName'] ?? citizenName;
+        }
+      } catch (_) {}
+
+      // ── Save to Firestore ──────────────────────────────────────
+      // NOTE: FieldValue.serverTimestamp() is NOT allowed inside arrays.
+      // Use Timestamp.now() for fields inside statusHistory array.
       await requestRef.set({
-        'serviceName': widget.serviceName,
-        'userId': user.uid,
-        'status': 'pending',
+        // Identification
+        'trackingId':   trackingId,
+        'userId':       user.uid,
+        'citizenName':  citizenName,
+        'citizenEmail': user.email ?? '',
+
+        // Service info
+        'serviceName':  widget.serviceName ?? 'Unknown Service',
+        'category':     widget.category    ?? 'General',
+        'department':   widget.department  ?? 'Unassigned',
+        'departmentId': widget.departmentId ?? '',
+
+        // Status
+        'status':             'pending',
+        'verificationStatus': 'unverified',
+        'priority':           'MEDIUM',
+
+        // Documents — Cloudinary URLs
         'requirementsUploaded': _requirements,
+        'documentUrls':         documentUrls,
+        'missingDocuments':     [],
+        'finalDocumentUrl':     '',
+
+        // Assignment
+        'assignedTo': '',
+        'assignedBy': '',
+        'assignedAt': null,
+
+        // Rejection
+        'rejectionReason': '',
+
+        // Status history
+        // ✅ Using Timestamp.now() — NOT FieldValue.serverTimestamp()
+        // because FieldValue.serverTimestamp() is NOT supported inside arrays
+        'statusHistory': [
+          {
+            'status':    'pending',
+            'note':      'Request submitted by citizen.',
+            'updatedBy': user.uid,
+            'updatedAt': Timestamp.now(),   // ← FIX: was FieldValue.serverTimestamp()
+          }
+        ],
+
+        // Timestamps — FieldValue.serverTimestamp() is fine at root level
         'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/status_success');
+
+      // ── Navigate to receipt ────────────────────────────────────
+      Navigator.pushReplacementNamed(
+        context,
+        '/submission_receipt',
+        arguments: {
+          'requestId':   requestRef.id,
+          'trackingId':  trackingId,
+          'serviceName': widget.serviceName ?? 'Service',
+          'createdAt':   DateTime.now().toIso8601String(),
+        },
+      );
     } catch (e) {
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/status_failed');
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Submission failed: ${e.toString()}'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md)),
+        ),
+      );
     }
   }
 
+  // ── BUILD ────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -176,27 +322,16 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Progress card
                   _buildProgressCard(),
                   const SizedBox(height: 20),
-
-                  // Requirements section
                   Text('Required Documents', style: AppTextStyles.h2),
                   const SizedBox(height: 6),
-                  Text(
-                    'Upload all documents below to proceed.',
-                    style: AppTextStyles.bodyMuted,
-                  ),
+                  Text('Upload all documents below to proceed.',
+                      style: AppTextStyles.bodyMuted),
                   const SizedBox(height: 14),
-
                   ...List.generate(
-                    _requirements.length,
-                    (i) => _buildRequirementTile(i),
-                  ),
-
+                      _requirements.length, _buildRequirementTile),
                   const SizedBox(height: 28),
-
-                  // Submit button
                   _buildSubmitButton(),
                 ],
               ),
@@ -213,7 +348,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
       decoration: const BoxDecoration(
         gradient: AppColors.headerGradient,
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(28),
+          bottomLeft:  Radius.circular(28),
           bottomRight: Radius.circular(28),
         ),
       ),
@@ -226,10 +361,9 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(LucideIcons.arrowLeft,
@@ -258,7 +392,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: Colors.white.withOpacity(0.80),
+                        color: Colors.white.withValues(alpha: 0.80),
                       ),
                     ),
                   ],
@@ -290,7 +424,9 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               Text(
                 '$_uploadCount / ${_requirements.length} files',
                 style: AppTextStyles.small.copyWith(
-                  color: _allUploaded ? AppColors.success : AppColors.primary,
+                  color: _allUploaded
+                      ? AppColors.success
+                      : AppColors.primary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -310,20 +446,18 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
           ),
           if (_allUploaded) ...[
             const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(LucideIcons.checkCircle2,
-                    color: AppColors.success, size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  'All documents uploaded. Ready to submit.',
-                  style: AppTextStyles.small.copyWith(
-                    color: AppColors.success,
-                    fontWeight: FontWeight.w600,
-                  ),
+            Row(children: [
+              const Icon(LucideIcons.checkCircle2,
+                  color: AppColors.success, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                'All documents uploaded. Ready to submit.',
+                style: AppTextStyles.small.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
-            ),
+              ),
+            ]),
           ],
         ],
       ),
@@ -331,10 +465,10 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
   }
 
   Widget _buildRequirementTile(int index) {
-    final file = _uploadedFiles[index];
+    final file        = _uploadedFiles[index];
     final isUploading = _isUploading[index] ?? false;
-    final isDone = file != null;
-    final fileName = isDone ? file.path.split('/').last : null;
+    final isDone      = file != null;
+    final fileName    = isDone ? file.path.split('/').last : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -343,7 +477,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
           color: isDone
-              ? AppColors.success.withOpacity(0.3)
+              ? AppColors.success.withValues(alpha: 0.3)
               : AppColors.divider,
           width: isDone ? 1.5 : 1,
         ),
@@ -353,11 +487,9 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            // Status icon
             AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              width: 44,
-              height: 44,
+              width: 44, height: 44,
               decoration: BoxDecoration(
                 color: isDone
                     ? AppColors.successLight
@@ -368,21 +500,20 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                   ? const Padding(
                       padding: EdgeInsets.all(12),
                       child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: AppColors.primary,
-                      ),
+                          strokeWidth: 2.5,
+                          color: AppColors.primary),
                     )
                   : Icon(
                       isDone
                           ? LucideIcons.checkCircle2
                           : LucideIcons.fileUp,
-                      color: isDone ? AppColors.success : AppColors.muted,
+                      color: isDone
+                          ? AppColors.success
+                          : AppColors.muted,
                       size: 22,
                     ),
             ),
             const SizedBox(width: 14),
-
-            // Label + file name
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,20 +538,14 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                     ),
                   ] else if (!isUploading) ...[
                     const SizedBox(height: 3),
-                    Text(
-                      'PDF, JPG or PNG — tap to upload',
-                      style: AppTextStyles.small,
-                    ),
+                    Text('PDF, JPG or PNG — tap to upload',
+                        style: AppTextStyles.small),
                   ],
                 ],
               ),
             ),
-
             const SizedBox(width: 10),
-
-            // Action button
             if (isDone)
-              // Remove button
               GestureDetector(
                 onTap: () => _removeFile(index),
                 child: Container(
@@ -434,7 +559,6 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                 ),
               )
             else if (!isUploading)
-              // Upload button
               GestureDetector(
                 onTap: () => _pickFile(index),
                 child: Container(
@@ -445,7 +569,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                     borderRadius:
                         BorderRadius.circular(AppRadius.pill),
                     border: Border.all(
-                        color: AppColors.primary.withOpacity(0.3),
+                        color: AppColors.primary
+                            .withValues(alpha: 0.3),
                         width: 1),
                   ),
                   child: Text(
@@ -472,40 +597,38 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
         gradient: _allUploaded && !_isSubmitting
             ? AppColors.primaryGradient
             : null,
-        color: _allUploaded && !_isSubmitting ? null : AppColors.muted.withOpacity(0.25),
+        color: _allUploaded && !_isSubmitting
+            ? null
+            : AppColors.muted.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: _allUploaded && !_isSubmitting ? AppShadows.primary : [],
+        boxShadow:
+            _allUploaded && !_isSubmitting ? AppShadows.primary : [],
       ),
       child: ElevatedButton(
-        onPressed: (_isSubmitting || !_allUploaded) ? null : _handleSubmit,
+        onPressed:
+            (_isSubmitting || !_allUploaded) ? null : _handleSubmit,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           disabledBackgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-          ),
+              borderRadius: BorderRadius.circular(AppRadius.lg)),
         ),
         child: _isSubmitting
             ? const SizedBox(
-                width: 22,
-                height: 22,
+                width: 22, height: 22,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: AppColors.primary,
-                ),
+                    strokeWidth: 2.5, color: AppColors.primary),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    LucideIcons.send,
-                    size: 18,
-                    color: _allUploaded
-                        ? Colors.white
-                        : AppColors.muted,
-                  ),
+                  Icon(LucideIcons.send,
+                      size: 18,
+                      color: _allUploaded
+                          ? Colors.white
+                          : AppColors.muted),
                   const SizedBox(width: 10),
                   Text(
                     _allUploaded

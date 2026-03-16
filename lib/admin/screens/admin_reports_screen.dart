@@ -2,40 +2,45 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../theme/app_theme.dart';
 
 class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
 
   @override
-  State<AdminReportsScreen> createState() =>
-      _AdminReportsScreenState();
+  State<AdminReportsScreen> createState() => _AdminReportsScreenState();
 }
 
-class _AdminReportsScreenState
-    extends State<AdminReportsScreen> {
-  bool _loading = true;
+class _AdminReportsScreenState extends State<AdminReportsScreen> {
+  // ── Filters ─────────────────────────────────────────────────────
+  String _preset      = '30D';
+  String _granularity = 'Daily';
+  DateTimeRange? _customRange;
+  int _touchedPieIndex = -1;
 
-  // Date range
-  DateTimeRange _dateRange = DateTimeRange(
-    start: DateTime.now().subtract(const Duration(days: 30)),
-    end:   DateTime.now(),
-  );
-  String _selectedPreset = '30d';
+  DateTime get _fromDate {
+    if (_customRange != null) return _customRange!.start;
+    final now = DateTime.now();
+    switch (_preset) {
+      case '7D':  return now.subtract(const Duration(days: 7));
+      case '3M':  return now.subtract(const Duration(days: 90));
+      case 'All': return DateTime(2020);
+      default:    return now.subtract(const Duration(days: 30));
+    }
+  }
 
-  // Raw data
-  List<Map<String, dynamic>> _requests  = [];
-  List<Map<String, dynamic>> _staffList = [];
+  // ── Data ────────────────────────────────────────────────────────
+  bool   _loading     = true;
+  int    _total       = 0;
+  int    _completed   = 0;
+  int    _pending     = 0;
+  int    _processing  = 0;
+  int    _rejected    = 0;
 
-  // Processed chart data
-  List<Map<String, dynamic>> _timeSeriesData   = [];
-  Map<String, int>            _statusData       = {};
-  Map<String, int>            _departmentData   = {};
-  Map<String, int>            _serviceTypeData  = {};
-  List<Map<String, dynamic>>  _staffPerformance = [];
-
-  // Granularity
-  String _granularity = 'daily';
+  List<Map<String, dynamic>> _timeSeries  = [];
+  List<Map<String, dynamic>> _topServices = [];
+  List<Map<String, dynamic>> _staffPerf   = [];
 
   @override
   void initState() {
@@ -43,605 +48,412 @@ class _AdminReportsScreenState
     _loadData();
   }
 
-  // ── Data loading ───────────────────────────────────────────────────────────
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final startTs = Timestamp.fromDate(_dateRange.start);
-      final endTs   = Timestamp.fromDate(
-          _dateRange.end.add(const Duration(days: 1)));
-
-      final reqSnap = await FirebaseFirestore.instance
+      final from = Timestamp.fromDate(_fromDate);
+      final snap = await FirebaseFirestore.instance
           .collection('requests')
-          .where('createdAt', isGreaterThanOrEqualTo: startTs)
-          .where('createdAt', isLessThan: endTs)
+          .where('createdAt', isGreaterThanOrEqualTo: from)
           .get();
 
-      _requests = reqSnap.docs.map((d) {
-        final data = d.data();
+      final docs = snap.docs;
+      int total = docs.length, completed = 0, pending = 0,
+          processing = 0, rejected = 0;
+
+      final Map<String, int>              buckets      = {};
+      final Map<String, int>              serviceCount = {};
+      final Map<String, Map<String, int>> staffMap     = {};
+
+      for (final doc in docs) {
+        final data   = doc.data();
+        final status = (data['status'] ?? '').toString().toLowerCase();
+
+        if (status == 'completed')  completed++;
+        if (status == 'pending')    pending++;
+        if (status == 'processing') processing++;
+        if (status == 'rejected')   rejected++;
+
+        final ts = data['createdAt'];
+        if (ts is Timestamp) {
+          final key = _bucketKey(ts.toDate());
+          buckets[key] = (buckets[key] ?? 0) + 1;
+        }
+
+        final svc = (data['serviceName'] ?? 'Unknown').toString();
+        serviceCount[svc] = (serviceCount[svc] ?? 0) + 1;
+
+        final staff = (data['assignedTo'] ?? '').toString();
+        if (staff.isNotEmpty) {
+          staffMap[staff] ??= {'total': 0, 'completed': 0};
+          staffMap[staff]!['total']     = staffMap[staff]!['total']!     + 1;
+          if (status == 'completed') {
+            staffMap[staff]!['completed'] = staffMap[staff]!['completed']! + 1;
+          }
+        }
+      }
+
+      final sortedBuckets = buckets.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      final maxBucket = sortedBuckets.isEmpty
+          ? 1
+          : sortedBuckets.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+
+      final sortedServices = serviceCount.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      final maxService =
+          sortedServices.isEmpty ? 1 : sortedServices.first.value;
+
+      final staffList = staffMap.entries.map((e) {
+        final t = e.value['total']!;
+        final c = e.value['completed']!;
         return {
-          'id':          d.id,
-          'status':      data['status'] ?? 'pending',
-          'department':  data['department'] ?? 'Unknown',
-          'serviceName': data['serviceName'] ?? 'Unknown',
-          'assignedTo':  data['assignedTo'] ?? '',
-          'createdAt':   data['createdAt'],
+          'name':      e.key,
+          'total':     t,
+          'completed': c,
+          'rate':      t == 0 ? 0.0 : c / t,
         };
-      }).toList();
+      }).toList()
+        ..sort((a, b) =>
+            (b['rate'] as double).compareTo(a['rate'] as double));
 
-      // Load staff
-      final staffSnap = await FirebaseFirestore.instance
-          .collection('admin')
-          .where('role', isEqualTo: 'admin')
-          .get();
-      _staffList = staffSnap.docs.map((d) => {
-        'uid':      d.id,
-        'fullName': d.data()['fullName'] ?? 'Staff',
-      }).toList();
-
-      _processData();
-    } catch (e) {
-      debugPrint('Reports error: $e');
+      if (mounted) {
+        setState(() {
+          _total      = total;
+          _completed  = completed;
+          _pending    = pending;
+          _processing = processing;
+          _rejected   = rejected;
+          _timeSeries = sortedBuckets
+              .map((e) => {
+                    'label': e.key,
+                    'count': e.value,
+                    'ratio': maxBucket == 0 ? 0.0 : e.value / maxBucket,
+                  })
+              .toList();
+          _topServices = sortedServices
+              .take(6)
+              .map((e) => {
+                    'name':  e.key,
+                    'count': e.value,
+                    'ratio': maxService == 0 ? 0.0 : e.value / maxService,
+                  })
+              .toList();
+          _staffPerf = staffList.take(8).toList();
+          _loading   = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
     }
-    if (mounted) setState(() => _loading = false);
   }
 
-  void _processData() {
-    // ── Time series ──
-    final Map<String, int> timeMap = {};
-    final diff = _dateRange.end.difference(_dateRange.start).inDays;
-
-    if (_granularity == 'daily' || diff <= 31) {
-      // Fill all days in range
-      for (int i = 0; i <= diff; i++) {
-        final d = _dateRange.start.add(Duration(days: i));
-        final key = '${d.month}/${d.day}';
-        timeMap[key] = 0;
-      }
-      for (final r in _requests) {
-        final ts = r['createdAt'] as Timestamp?;
-        if (ts == null) continue;
-        final d   = ts.toDate();
-        final key = '${d.month}/${d.day}';
-        timeMap[key] = (timeMap[key] ?? 0) + 1;
-      }
-    } else if (_granularity == 'weekly') {
-      for (final r in _requests) {
-        final ts = r['createdAt'] as Timestamp?;
-        if (ts == null) continue;
-        final d    = ts.toDate();
-        final week = _weekLabel(d);
-        timeMap[week] = (timeMap[week] ?? 0) + 1;
-      }
-    } else {
-      for (final r in _requests) {
-        final ts = r['createdAt'] as Timestamp?;
-        if (ts == null) continue;
-        final d   = ts.toDate();
-        final key = _monthLabel(d);
-        timeMap[key] = (timeMap[key] ?? 0) + 1;
-      }
+  String _bucketKey(DateTime dt) {
+    switch (_granularity) {
+      case 'Weekly':
+        final week = (dt.day / 7).ceil();
+        return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-W$week';
+      case 'Monthly':
+        return '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+      default:
+        return '${dt.year}-'
+            '${dt.month.toString().padLeft(2, '0')}-'
+            '${dt.day.toString().padLeft(2, '0')}';
     }
-
-    _timeSeriesData = timeMap.entries
-        .map((e) => {'label': e.key, 'value': e.value})
-        .toList();
-
-    // ── Status breakdown ──
-    _statusData = {};
-    for (final r in _requests) {
-      final s = r['status'] as String;
-      _statusData[s] = (_statusData[s] ?? 0) + 1;
-    }
-
-    // ── By department ──
-    _departmentData = {};
-    for (final r in _requests) {
-      final dept = r['department'] as String;
-      if (dept.isEmpty || dept == 'Unknown') continue;
-      _departmentData[dept] =
-          (_departmentData[dept] ?? 0) + 1;
-    }
-
-    // ── By service type ──
-    final serviceCount = <String, int>{};
-    for (final r in _requests) {
-      final svc = r['serviceName'] as String;
-      serviceCount[svc] = (serviceCount[svc] ?? 0) + 1;
-    }
-    // Top 6
-    final sorted = serviceCount.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    _serviceTypeData = Map.fromEntries(sorted.take(6));
-
-    // ── Staff performance ──
-    final Map<String, int> staffCompleted = {};
-    final Map<String, int> staffTotal     = {};
-    for (final r in _requests) {
-      final uid = r['assignedTo'] as String;
-      if (uid.isEmpty) continue;
-      staffTotal[uid] = (staffTotal[uid] ?? 0) + 1;
-      if (r['status'] == 'completed') {
-        staffCompleted[uid] =
-            (staffCompleted[uid] ?? 0) + 1;
-      }
-    }
-    _staffPerformance = _staffList.map((s) {
-      final uid   = s['uid'] as String;
-      final total = staffTotal[uid] ?? 0;
-      final done  = staffCompleted[uid] ?? 0;
-      return {
-        'name':      s['fullName'] as String,
-        'total':     total,
-        'completed': done,
-        'rate':      total == 0 ? 0.0 : done / total,
-      };
-    }).where((s) => (s['total'] as int) > 0).toList()
-      ..sort((a, b) =>
-          (b['completed'] as int)
-              .compareTo(a['completed'] as int));
-
-    setState(() {});
   }
 
-  // ── BUILD ──────────────────────────────────────────────────────────────────
+  // ── Build ────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: Column(
         children: [
           _buildHeader(),
-          const SizedBox(height: 20),
-          _buildFilterBar(),
-          const SizedBox(height: 20),
           Expanded(
             child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                        color: AppColors.primary))
-                : _buildCharts(),
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _loadData,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildFilterBar(),
+                          const SizedBox(height: 20),
+                          _buildSummaryCards(),
+                          const SizedBox(height: 24),
+                          _buildLineChart(),
+                          const SizedBox(height: 24),
+                          _buildStatusPieChart(),
+                          const SizedBox(height: 24),
+                          _buildTopServices(),
+                          const SizedBox(height: 24),
+                          _buildStaffPerformance(),
+                          const SizedBox(height: 40),
+                        ],
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
     );
   }
 
-  // ── Header ─────────────────────────────────────────────────────────────────
+  // ── Header ───────────────────────────────────────────────────────
   Widget _buildHeader() {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Reports & Analytics',
-                  style: GoogleFonts.inter(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF111111),
-                    letterSpacing: -0.5,
-                  )),
-              const SizedBox(height: 4),
-              Text(
-                '${_requests.length} requests in selected period',
-                style: GoogleFonts.inter(
-                    fontSize: 13, color: AppColors.muted),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: const Color(0xFFEEEEEE)),
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.refresh_rounded,
-                size: 18, color: AppColors.muted),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.barChart2,
+              color: AppColors.primary, size: 22),
+          const SizedBox(width: 10),
+          Text('Reports & Analytics',
+              style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A1A2E))),
+          const Spacer(),
+          OutlinedButton.icon(
             onPressed: _loadData,
+            icon: const Icon(LucideIcons.refreshCw, size: 14),
+            label: const Text('Refresh'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              textStyle: GoogleFonts.inter(
+                  fontSize: 13, fontWeight: FontWeight.w600),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  // ── Filter bar ─────────────────────────────────────────────────────────────
+  // ── Filter Bar ───────────────────────────────────────────────────
   Widget _buildFilterBar() {
-    final presets = <Map<String, dynamic>>[
-      {'label': '7D',   'key': '7d',   'days': 7},
-      {'label': '30D',  'key': '30d',  'days': 30},
-      {'label': '3M',   'key': '3m',   'days': 90},
-      {'label': 'All',  'key': 'all',  'days': 365},
-    ];
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [_cardShadow()],
       ),
-      child: Row(
-        children: [
-          // Preset buttons
-          ...presets.map((p) {
-            final sel = _selectedPreset == p['key'];
-            return GestureDetector(
-              onTap: () {
-                final days = p['days'] as int;
-                setState(() {
-                  _selectedPreset = p['key'] as String;
-                  _dateRange = DateTimeRange(
-                    start: DateTime.now()
-                        .subtract(Duration(days: days)),
-                    end: DateTime.now(),
-                  );
-                });
-                _loadData();
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: sel
-                      ? AppColors.primary
-                      : const Color(0xFFF7F8FC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: sel
-                        ? AppColors.primary
-                        : const Color(0xFFEEEEEE),
-                  ),
-                ),
-                child: Text(p['label'] as String,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: sel
-                          ? Colors.white
-                          : AppColors.muted,
-                    )),
-              ),
-            );
-          }),
-
-          // Custom date range
-          GestureDetector(
-            onTap: _pickDateRange,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              margin: const EdgeInsets.only(right: 16),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: _selectedPreset == 'custom'
-                    ? AppColors.primary
-                        .withValues(alpha: 0.08)
-                    : const Color(0xFFF7F8FC),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: _selectedPreset == 'custom'
-                      ? AppColors.primary
-                          .withValues(alpha: 0.40)
-                      : const Color(0xFFEEEEEE),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.date_range_rounded,
-                      size: 14,
-                      color: _selectedPreset == 'custom'
-                          ? AppColors.primary
-                          : AppColors.muted),
-                  const SizedBox(width: 6),
-                  Text(
-                    _selectedPreset == 'custom'
-                        ? '${_fmtShort(_dateRange.start)} – ${_fmtShort(_dateRange.end)}'
-                        : 'Custom Range',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _selectedPreset == 'custom'
-                          ? AppColors.primary
-                          : AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const Spacer(),
-
-          // Granularity
-          Text('View by:',
-              style: GoogleFonts.inter(
-                  fontSize: 12, color: AppColors.muted)),
-          const SizedBox(width: 10),
-          ...['daily', 'weekly', 'monthly'].map((g) {
-            final sel = _granularity == g;
-            return GestureDetector(
-              onTap: () {
-                setState(() => _granularity = g);
-                _processData();
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                margin: const EdgeInsets.only(left: 6),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: sel
-                      ? AppColors.primary
-                      : const Color(0xFFF7F8FC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: sel
-                        ? AppColors.primary
-                        : const Color(0xFFEEEEEE),
-                  ),
-                ),
-                child: Text(
-                  g[0].toUpperCase() + g.substring(1),
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: sel
-                        ? Colors.white
-                        : AppColors.muted,
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2024),
-      lastDate: DateTime.now(),
-      initialDateRange: _dateRange,
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(
-              primary: AppColors.primary),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) {
-      setState(() {
-        _dateRange       = picked;
-        _selectedPreset  = 'custom';
-      });
-      _loadData();
-    }
-  }
-
-  // ── Charts layout ──────────────────────────────────────────────────────────
-  Widget _buildCharts() {
-    if (_requests.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.bar_chart_rounded,
-                size: 56,
-                color: AppColors.muted
-                    .withValues(alpha: 0.25)),
-            const SizedBox(height: 16),
-            Text('No data for selected period',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.muted,
-                )),
-            const SizedBox(height: 6),
-            Text('Try selecting a wider date range',
-                style: GoogleFonts.inter(
-                    fontSize: 13, color: AppColors.muted)),
-          ],
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: Summary cards
-          _buildSummaryCards(),
-          const SizedBox(height: 20),
-
-          // Row 2: Line chart + Donut chart
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text('Period:',
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF666666))),
+              const SizedBox(width: 10),
               Expanded(
-                flex: 6,
-                child: _buildLineChart(),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                flex: 4,
-                child: _buildDonutChart(),
+                child: Wrap(
+                  spacing: 6,
+                  children: ['7D', '30D', '3M', 'All', 'Custom']
+                      .map(_presetChip)
+                      .toList(),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-
-          // Row 3: Department bar + Service type bar
+          if (_customRange != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Custom: ${_fmt(_customRange!.start)} → ${_fmt(_customRange!.end)}',
+              style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w500),
+            ),
+          ],
+          const SizedBox(height: 12),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _buildDepartmentBar(),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: _buildServiceTypeBar(),
-              ),
+              Text('View by:',
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF666666))),
+              const SizedBox(width: 10),
+              ...['Daily', 'Weekly', 'Monthly'].map((g) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(g),
+                      selected: _granularity == g,
+                      onSelected: (_) {
+                        setState(() => _granularity = g);
+                        _loadData();
+                      },
+                      selectedColor:
+                          AppColors.primary.withValues(alpha: 0.15),
+                      labelStyle: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _granularity == g
+                            ? AppColors.primary
+                            : const Color(0xFF666666),
+                      ),
+                    ),
+                  )),
             ],
           ),
-          const SizedBox(height: 20),
-
-          // Row 4: Staff performance
-          _buildStaffPerformance(),
-          const SizedBox(height: 28),
         ],
       ),
     );
   }
 
-  // ── Summary cards ──────────────────────────────────────────────────────────
-  Widget _buildSummaryCards() {
-    final total     = _requests.length;
-    final completed = _statusData['completed'] ?? 0;
-    final pending   = _statusData['pending'] ?? 0;
-    final rate      = total == 0
-        ? 0.0
-        : (completed / total * 100);
+  Widget _presetChip(String label) {
+    final selected = label == _preset;
+    return GestureDetector(
+      onTap: () async {
+        if (label == 'Custom') {
+          final range = await showDateRangePicker(
+            context: context,
+            firstDate: DateTime(2020),
+            lastDate: DateTime.now(),
+            builder: (ctx, child) => Theme(
+              data: Theme.of(ctx).copyWith(
+                colorScheme: const ColorScheme.light(
+                    primary: AppColors.primary),
+              ),
+              child: child!,
+            ),
+          );
+          if (range != null) {
+            setState(() {
+              _preset      = 'Custom';
+              _customRange = range;
+            });
+            _loadData();
+          }
+        } else {
+          setState(() {
+            _preset      = label;
+            _customRange = null;
+          });
+          _loadData();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        margin: const EdgeInsets.only(right: 4, bottom: 4),
+        decoration: BoxDecoration(
+          color:  selected ? AppColors.primary : const Color(0xFFF0F0F0),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : const Color(0xFF666666),
+            )),
+      ),
+    );
+  }
 
-    final cards = <Map<String, dynamic>>[
-      {
-        'label': 'Total Requests',
-        'value': '$total',
-        'icon':  Icons.assignment_rounded,
-        'color': const Color(0xFF5C6BC0),
-        'bg':    const Color(0xFFEDE7F6),
-      },
-      {
-        'label': 'Completed',
-        'value': '$completed',
-        'icon':  Icons.check_circle_rounded,
-        'color': const Color(0xFF10B981),
-        'bg':    const Color(0xFFECFDF5),
-      },
-      {
-        'label': 'Pending',
-        'value': '$pending',
-        'icon':  Icons.hourglass_empty_rounded,
-        'color': const Color(0xFFF59E0B),
-        'bg':    const Color(0xFFFFFBEB),
-      },
-      {
-        'label': 'Completion Rate',
-        'value': '${rate.toStringAsFixed(1)}%',
-        'icon':  Icons.trending_up_rounded,
-        'color': AppColors.primary,
-        'bg':    const Color(0xFFFFF7ED),
-      },
+  // ── Summary Cards ────────────────────────────────────────────────
+  Widget _buildSummaryCards() {
+    final rate = _total == 0 ? 0.0 : (_completed / _total * 100);
+    final cards = [
+      {'label': 'Total',     'value': '$_total',     'icon': LucideIcons.clipboardList, 'color': const Color(0xFF6C63FF)},
+      {'label': 'Completed', 'value': '$_completed', 'icon': LucideIcons.checkCircle2,  'color': AppColors.success},
+      {'label': 'Pending',   'value': '$_pending',   'icon': LucideIcons.clock3,         'color': AppColors.warning},
+      {'label': 'Rate',      'value': '${rate.toStringAsFixed(1)}%', 'icon': LucideIcons.trendingUp, 'color': AppColors.primary},
     ];
 
-    return Row(
-      children: cards.asMap().entries.map((entry) {
-        final i      = entry.key;
-        final c      = entry.value;
-        final color  = c['color'] as Color;
-        final isLast = i == cards.length - 1;
-        return Expanded(
-          child: Container(
-            margin: EdgeInsets.only(right: isLast ? 0 : 16),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color:
-                      Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+    return GridView.count(
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.6,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: cards.map((c) {
+        final color = c['color'] as Color;
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [_cardShadow()],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44, height: 44,
-                  decoration: BoxDecoration(
-                    color: c['bg'] as Color,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(c['icon'] as IconData,
-                      color: color, size: 22),
+                child: Icon(c['icon'] as IconData, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(c['value'] as String,
+                        style: GoogleFonts.inter(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF1A1A2E))),
+                    Text(c['label'] as String,
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xFF888888),
+                            fontWeight: FontWeight.w500)),
+                  ],
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(c['value'] as String,
-                          style: GoogleFonts.inter(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF111111),
-                            letterSpacing: -0.5,
-                          )),
-                      Text(c['label'] as String,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: AppColors.muted,
-                            fontWeight: FontWeight.w500,
-                          )),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       }).toList(),
     );
   }
 
-  // ── Line chart ─────────────────────────────────────────────────────────────
+  // ── Line Chart — Requests Over Time ─────────────────────────────
   Widget _buildLineChart() {
-    if (_timeSeriesData.isEmpty) {
-      return _chartCard('Requests Over Time', 280,
-          child: _emptyChart());
+    if (_timeSeries.isEmpty) {
+      return _buildCard(
+        title: 'Requests Over Time',
+        icon: LucideIcons.trendingUp,
+        child: _emptyChart(),
+      );
     }
 
-    final spots = _timeSeriesData.asMap().entries.map((e) {
-      return FlSpot(
-          e.key.toDouble(),
-          (e.value['value'] as int).toDouble());
+    final spots = _timeSeries.asMap().entries.map((e) {
+      return FlSpot(e.key.toDouble(), (e.value['count'] as int).toDouble());
     }).toList();
 
-    final maxY = spots.isEmpty
-        ? 5.0
-        : spots.map((s) => s.y).reduce(
-                (a, b) => a > b ? a : b) +
-            2;
+    final maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
 
-    return _chartCard('Requests Over Time', 280,
+    return _buildCard(
+      title: 'Requests Over Time',
+      icon: LucideIcons.trendingUp,
+      child: SizedBox(
+        height: 220,
         child: LineChart(
           LineChartData(
             gridData: FlGridData(
               show: true,
               drawVerticalLine: false,
-              horizontalInterval: (maxY / 4).ceilToDouble(),
               getDrawingHorizontalLine: (_) => FlLine(
-                color: const Color(0xFFF0F0F0),
+                color: const Color(0xFFEEEEEE),
                 strokeWidth: 1,
               ),
             ),
@@ -650,12 +462,10 @@ class _AdminReportsScreenState
                 sideTitles: SideTitles(
                   showTitles: true,
                   reservedSize: 32,
-                  interval: (maxY / 4).ceilToDouble(),
-                  getTitlesWidget: (v, _) => Text(
-                    v.toInt().toString(),
+                  getTitlesWidget: (value, meta) => Text(
+                    value.toInt().toString(),
                     style: GoogleFonts.inter(
-                        fontSize: 10,
-                        color: AppColors.muted),
+                        fontSize: 10, color: const Color(0xFF888888)),
                   ),
                 ),
               ),
@@ -663,213 +473,219 @@ class _AdminReportsScreenState
                 sideTitles: SideTitles(
                   showTitles: true,
                   reservedSize: 28,
-                  interval: (_timeSeriesData.length / 6)
-                      .ceilToDouble()
-                      .clamp(1, 999),
-                  getTitlesWidget: (v, _) {
-                    final i = v.toInt();
-                    if (i < 0 ||
-                        i >= _timeSeriesData.length) {
+                  interval: (_timeSeries.length / 5).ceilToDouble().clamp(1, double.infinity),
+                  getTitlesWidget: (value, meta) {
+                    final idx = value.toInt();
+                    if (idx < 0 || idx >= _timeSeries.length) {
                       return const SizedBox.shrink();
                     }
                     return Padding(
-                      padding:
-                          const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: 6),
                       child: Text(
-                        _timeSeriesData[i]['label']
-                            as String,
+                        _shortLabel(_timeSeries[idx]['label'] as String),
                         style: GoogleFonts.inter(
-                            fontSize: 9,
-                            color: AppColors.muted),
+                            fontSize: 9, color: const Color(0xFF888888)),
                       ),
                     );
                   },
                 ),
               ),
-              rightTitles: const AxisTitles(
-                  sideTitles:
-                      SideTitles(showTitles: false)),
-              topTitles: const AxisTitles(
-                  sideTitles:
-                      SideTitles(showTitles: false)),
+              rightTitles:  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles:    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             ),
-            borderData: FlBorderData(show: false),
+            borderData: FlBorderData(
+              show: true,
+              border: const Border(
+                bottom: BorderSide(color: Color(0xFFEEEEEE)),
+                left:   BorderSide(color: Color(0xFFEEEEEE)),
+              ),
+            ),
             minX: 0,
-            maxX: (_timeSeriesData.length - 1).toDouble(),
+            maxX: (_timeSeries.length - 1).toDouble().clamp(0, double.infinity),
             minY: 0,
-            maxY: maxY,
+            maxY: (maxY * 1.2).ceilToDouble(),
             lineBarsData: [
               LineChartBarData(
                 spots: spots,
                 isCurved: true,
+                curveSmoothness: 0.3,
                 color: AppColors.primary,
-                barWidth: 2.5,
-                isStrokeCapRound: true,
+                barWidth: 3,
                 dotData: FlDotData(
                   show: true,
-                  getDotPainter: (_, __, ___, ____) =>
-                      FlDotCirclePainter(
-                    radius: 3,
-                    color: AppColors.primary,
-                    strokeWidth: 1.5,
-                    strokeColor: Colors.white,
+                  getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
+                    radius: 4,
+                    color: Colors.white,
+                    strokeWidth: 2,
+                    strokeColor: AppColors.primary,
                   ),
                 ),
                 belowBarData: BarAreaData(
                   show: true,
-                  color: AppColors.primary
-                      .withValues(alpha: 0.08),
+                  color: AppColors.primary.withValues(alpha: 0.08),
                 ),
               ),
             ],
           ),
-        ));
+        ),
+      ),
+    );
   }
 
-  // ── Donut chart ────────────────────────────────────────────────────────────
-  Widget _buildDonutChart() {
-    if (_statusData.isEmpty) {
-      return _chartCard('Requests by Status', 280,
-          child: _emptyChart());
+  // ── Pie Chart — Status Breakdown ─────────────────────────────────
+  Widget _buildStatusPieChart() {
+    if (_total == 0) {
+      return _buildCard(
+        title: 'Status Breakdown',
+        icon: LucideIcons.pieChart,
+        child: _emptyChart(),
+      );
     }
 
-    final statusColors = <String, Color>{
-      'pending':     const Color(0xFFF59E0B),
-      'in_progress': const Color(0xFF3B82F6),
-      'completed':   const Color(0xFF10B981),
-      'rejected':    const Color(0xFFEF4444),
-    };
-    final statusLabels = <String, String>{
-      'pending':     'Pending',
-      'in_progress': 'In Progress',
-      'completed':   'Completed',
-      'rejected':    'Rejected',
-    };
+    final sections = <PieChartSectionData>[];
+    final statusData = [
+      {'label': 'Completed',  'count': _completed,  'color': AppColors.success},
+      {'label': 'Pending',    'count': _pending,    'color': AppColors.warning},
+      {'label': 'Processing', 'count': _processing, 'color': AppColors.primary},
+      {'label': 'Rejected',   'count': _rejected,   'color': AppColors.danger},
+    ];
 
-    final sections = _statusData.entries.map((e) {
-      final color =
-          statusColors[e.key] ?? const Color(0xFF9CA3AF);
-      return PieChartSectionData(
-        value: e.value.toDouble(),
-        color: color,
-        title: '${e.value}',
-        radius: 60,
+    for (int i = 0; i < statusData.length; i++) {
+      final item  = statusData[i];
+      final count = item['count'] as int;
+      if (count == 0) continue;
+      final pct     = count / _total * 100;
+      final isTouched = i == _touchedPieIndex;
+      sections.add(PieChartSectionData(
+        value:      count.toDouble(),
+        color:      item['color'] as Color,
+        radius:     isTouched ? 72 : 60,
+        title:      '${pct.toStringAsFixed(1)}%',
         titleStyle: GoogleFonts.inter(
-          fontSize: 12,
+          fontSize: isTouched ? 14 : 11,
           fontWeight: FontWeight.w700,
           color: Colors.white,
         ),
-      );
-    }).toList();
+      ));
+    }
 
-    return _chartCard('Requests by Status', 280,
-        child: Row(
-          children: [
-            Expanded(
-              child: PieChart(
-                PieChartData(
-                  sections: sections,
-                  centerSpaceRadius: 50,
-                  sectionsSpace: 2,
+    return _buildCard(
+      title: 'Status Breakdown',
+      icon: LucideIcons.pieChart,
+      child: Row(
+        children: [
+          SizedBox(
+            height: 200,
+            width: 200,
+            child: PieChart(
+              PieChartData(
+                sections: sections,
+                centerSpaceRadius: 40,
+                sectionsSpace: 3,
+                pieTouchData: PieTouchData(
+                  touchCallback: (event, response) {
+                    setState(() {
+                      if (!event.isInterestedForInteractions ||
+                          response == null ||
+                          response.touchedSection == null) {
+                        _touchedPieIndex = -1;
+                        return;
+                      }
+                      _touchedPieIndex =
+                          response.touchedSection!.touchedSectionIndex;
+                    });
+                  },
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: _statusData.entries.map((e) {
-                final color = statusColors[e.key] ??
-                    const Color(0xFF9CA3AF);
-                final label = statusLabels[e.key] ?? e.key;
-                final total = _requests.length;
-                final pct = total == 0
-                    ? 0
-                    : (e.value / total * 100).round();
+              children: statusData.map((item) {
+                final count = item['count'] as int;
+                final color = item['color'] as Color;
+                final pct   = _total == 0 ? 0.0 : count / _total * 100;
                 return Padding(
-                  padding:
-                      const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: Row(
                     children: [
                       Container(
-                        width: 10, height: 10,
+                        width: 12, height: 12,
                         decoration: BoxDecoration(
                           color: color,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(label,
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(
-                                    0xFF333333),
-                              )),
-                          Text('$pct%',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                color: AppColors.muted,
-                              )),
-                        ],
+                      Expanded(
+                        child: Text(item['label'] as String,
+                            style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF444444))),
+                      ),
+                      Text(
+                        '$count (${pct.toStringAsFixed(0)}%)',
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1A1A2E)),
                       ),
                     ],
                   ),
                 );
               }).toList(),
             ),
-          ],
-        ));
+          ),
+        ],
+      ),
+    );
   }
 
-  // ── Department bar chart ───────────────────────────────────────────────────
-  Widget _buildDepartmentBar() {
-    if (_departmentData.isEmpty) {
-      return _chartCard('Requests by Department', 260,
-          child: _emptyChart());
+  // ── Top Services — Horizontal Bar Chart ─────────────────────────
+  Widget _buildTopServices() {
+    if (_topServices.isEmpty) {
+      return _buildCard(
+        title: 'Top Services',
+        icon: LucideIcons.star,
+        child: _emptyChart(),
+      );
     }
 
-    final entries = _departmentData.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final top     = entries.take(6).toList();
-    final maxVal  = top.isEmpty
-        ? 1
-        : top.map((e) => e.value).reduce(
-                (a, b) => a > b ? a : b);
-
-    final groups = top.asMap().entries.map((entry) {
+    final groups = _topServices.asMap().entries.map((e) {
       return BarChartGroupData(
-        x: entry.key,
+        x: e.key,
         barRods: [
           BarChartRodData(
-            toY: entry.value.value.toDouble(),
+            toY: (e.value['count'] as int).toDouble(),
             color: AppColors.primary,
-            width: 22,
-            borderRadius: const BorderRadius.only(
-              topLeft:  Radius.circular(4),
-              topRight: Radius.circular(4),
-            ),
+            width: 18,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
           ),
         ],
       );
     }).toList();
 
-    return _chartCard('Requests by Department', 260,
+    final maxY = _topServices
+        .map((e) => (e['count'] as int).toDouble())
+        .reduce((a, b) => a > b ? a : b);
+
+    return _buildCard(
+      title: 'Top Services',
+      icon: LucideIcons.star,
+      child: SizedBox(
+        height: 220,
         child: BarChart(
           BarChartData(
             alignment: BarChartAlignment.spaceAround,
-            maxY: maxVal.toDouble() + 2,
+            maxY: (maxY * 1.25).ceilToDouble(),
             gridData: FlGridData(
               show: true,
               drawVerticalLine: false,
-              horizontalInterval:
-                  (maxVal / 4).ceilToDouble(),
               getDrawingHorizontalLine: (_) => FlLine(
-                color: const Color(0xFFF0F0F0),
+                color: const Color(0xFFEEEEEE),
                 strokeWidth: 1,
               ),
             ),
@@ -877,13 +693,11 @@ class _AdminReportsScreenState
               leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 30,
-                  interval: (maxVal / 4).ceilToDouble(),
-                  getTitlesWidget: (v, _) => Text(
-                    v.toInt().toString(),
+                  reservedSize: 28,
+                  getTitlesWidget: (value, meta) => Text(
+                    value.toInt().toString(),
                     style: GoogleFonts.inter(
-                        fontSize: 10,
-                        color: AppColors.muted),
+                        fontSize: 10, color: const Color(0xFF888888)),
                   ),
                 ),
               ),
@@ -891,376 +705,202 @@ class _AdminReportsScreenState
                 sideTitles: SideTitles(
                   showTitles: true,
                   reservedSize: 36,
-                  getTitlesWidget: (v, _) {
-                    final i = v.toInt();
-                    if (i < 0 || i >= top.length) {
+                  getTitlesWidget: (value, meta) {
+                    final idx = value.toInt();
+                    if (idx < 0 || idx >= _topServices.length) {
                       return const SizedBox.shrink();
                     }
-                    final name = top[i].key;
+                    final name = (_topServices[idx]['name'] as String);
                     final short = name.length > 10
                         ? '${name.substring(0, 9)}…'
                         : name;
                     return Padding(
-                      padding:
-                          const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: 6),
                       child: Text(short,
-                          textAlign: TextAlign.center,
                           style: GoogleFonts.inter(
                               fontSize: 9,
-                              color: AppColors.muted)),
+                              color: const Color(0xFF666666)),
+                          textAlign: TextAlign.center),
                     );
                   },
                 ),
               ),
-              rightTitles: const AxisTitles(
-                  sideTitles:
-                      SideTitles(showTitles: false)),
-              topTitles: const AxisTitles(
-                  sideTitles:
-                      SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             ),
-            borderData: FlBorderData(show: false),
-            barGroups: groups,
-            barTouchData: BarTouchData(
-              touchTooltipData: BarTouchTooltipData(
-                getTooltipItem: (group, _, rod, __) =>
-                    BarTooltipItem(
-                  '${top[group.x].key}\n${rod.toY.toInt()}',
-                  GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ));
-  }
-
-  // ── Service type bar chart ─────────────────────────────────────────────────
-  Widget _buildServiceTypeBar() {
-    if (_serviceTypeData.isEmpty) {
-      return _chartCard('Top Services', 260,
-          child: _emptyChart());
-    }
-
-    final entries = _serviceTypeData.entries.toList();
-    final colors  = [
-      const Color(0xFF5C6BC0),
-      const Color(0xFF3B82F6),
-      AppColors.primary,
-      const Color(0xFF10B981),
-      const Color(0xFF8B5CF6),
-      const Color(0xFFF59E0B),
-    ];
-    final maxVal = entries.isEmpty
-        ? 1
-        : entries
-            .map((e) => e.value)
-            .reduce((a, b) => a > b ? a : b);
-
-    final groups = entries.asMap().entries.map((entry) {
-      return BarChartGroupData(
-        x: entry.key,
-        barRods: [
-          BarChartRodData(
-            toY: entry.value.value.toDouble(),
-            color: colors[entry.key % colors.length],
-            width: 22,
-            borderRadius: const BorderRadius.only(
-              topLeft:  Radius.circular(4),
-              topRight: Radius.circular(4),
-            ),
-          ),
-        ],
-      );
-    }).toList();
-
-    return _chartCard('Top Services', 260,
-        child: BarChart(
-          BarChartData(
-            alignment: BarChartAlignment.spaceAround,
-            maxY: maxVal.toDouble() + 2,
-            gridData: FlGridData(
+            borderData: FlBorderData(
               show: true,
-              drawVerticalLine: false,
-              horizontalInterval:
-                  (maxVal / 4).ceilToDouble(),
-              getDrawingHorizontalLine: (_) => FlLine(
-                color: const Color(0xFFF0F0F0),
-                strokeWidth: 1,
+              border: const Border(
+                bottom: BorderSide(color: Color(0xFFEEEEEE)),
+                left:   BorderSide(color: Color(0xFFEEEEEE)),
               ),
             ),
-            titlesData: FlTitlesData(
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 30,
-                  interval: (maxVal / 4).ceilToDouble(),
-                  getTitlesWidget: (v, _) => Text(
-                    v.toInt().toString(),
-                    style: GoogleFonts.inter(
-                        fontSize: 10,
-                        color: AppColors.muted),
-                  ),
-                ),
-              ),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 36,
-                  getTitlesWidget: (v, _) {
-                    final i = v.toInt();
-                    if (i < 0 || i >= entries.length) {
-                      return const SizedBox.shrink();
-                    }
-                    final name = entries[i].key;
-                    final short = name.length > 10
-                        ? '${name.substring(0, 9)}…'
-                        : name;
-                    return Padding(
-                      padding:
-                          const EdgeInsets.only(top: 4),
-                      child: Text(short,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(
-                              fontSize: 9,
-                              color: AppColors.muted)),
-                    );
-                  },
-                ),
-              ),
-              rightTitles: const AxisTitles(
-                  sideTitles:
-                      SideTitles(showTitles: false)),
-              topTitles: const AxisTitles(
-                  sideTitles:
-                      SideTitles(showTitles: false)),
-            ),
-            borderData: FlBorderData(show: false),
             barGroups: groups,
             barTouchData: BarTouchData(
               touchTooltipData: BarTouchTooltipData(
-                getTooltipItem: (group, _, rod, __) =>
-                    BarTooltipItem(
-                  '${entries[group.x].key}\n${rod.toY.toInt()}',
+                getTooltipItem: (group, _, rod, __) => BarTooltipItem(
+                  '${_topServices[group.x]['name']}\n${rod.toY.toInt()} requests',
                   GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white),
                 ),
               ),
             ),
           ),
-        ));
+        ),
+      ),
+    );
   }
 
-  // ── Staff performance ──────────────────────────────────────────────────────
+  // ── Staff Performance ────────────────────────────────────────────
   Widget _buildStaffPerformance() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Staff Performance',
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF111111),
-              )),
-          const SizedBox(height: 4),
-          Text('Requests assigned vs completed per staff',
-              style: GoogleFonts.inter(
-                  fontSize: 12, color: AppColors.muted)),
-          const SizedBox(height: 20),
-          if (_staffPerformance.isEmpty)
-            Center(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 24),
-                child: Text('No staff data available',
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: AppColors.muted)),
-              ),
-            )
-          else
-            ...(_staffPerformance.take(8).toList())
-                .map((s) => _staffRow(s)),
-        ],
-      ),
-    );
-  }
+    return _buildCard(
+      title: 'Staff Performance',
+      icon: LucideIcons.users,
+      child: _staffPerf.isEmpty
+          ? _emptyChart('No assigned requests in this period')
+          : Column(
+              children: _staffPerf.map((s) {
+                final rate  = (s['rate'] as double).clamp(0.0, 1.0);
+                final pct   = (rate * 100).toStringAsFixed(0);
+                final Color color;
+                if (rate >= 0.7) {
+                  color = AppColors.success;
+                } else if (rate >= 0.4) color = AppColors.warning;
+                else                  color = AppColors.danger;
 
-  Widget _staffRow(Map<String, dynamic> s) {
-    final total     = s['total'] as int;
-    final completed = s['completed'] as int;
-    final rate      = s['rate'] as double;
-    final name      = s['name'] as String;
-    final initials  = _initials(name);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color:
-                  AppColors.primary.withValues(alpha: 0.10),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(initials,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  )),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 3,
-            child: Text(name,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF222222),
-                )),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 5,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('$completed / $total completed',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: AppColors.muted,
-                        )),
-                    Text(
-                      '${(rate * 100).toStringAsFixed(0)}%',
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: rate >= 0.7
-                            ? const Color(0xFF10B981)
-                            : rate >= 0.4
-                                ? const Color(0xFFF59E0B)
-                                : const Color(0xFFEF4444),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(children: [
+                            CircleAvatar(
+                              radius: 14,
+                              backgroundColor: color.withValues(alpha: 0.15),
+                              child: Text(
+                                (s['name'] as String)
+                                    .substring(0, 1)
+                                    .toUpperCase(),
+                                style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: color),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(s['name'] as String,
+                                style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF444444))),
+                          ]),
+                          Row(children: [
+                            Text('${s['completed']}/${s['total']}',
+                                style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xFF888888))),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text('$pct%',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: color)),
+                            ),
+                          ]),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: rate.clamp(0.0, 1.0),
-                    backgroundColor:
-                        const Color(0xFFF0F0F0),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      rate >= 0.7
-                          ? const Color(0xFF10B981)
-                          : rate >= 0.4
-                              ? const Color(0xFFF59E0B)
-                              : const Color(0xFFEF4444),
-                    ),
-                    minHeight: 6,
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: rate,
+                          minHeight: 6,
+                          backgroundColor: color.withValues(alpha: 0.12),
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                );
+              }).toList(),
             ),
-          ),
-        ],
-      ),
     );
   }
 
-  // ── Shared chart card wrapper ──────────────────────────────────────────────
-  Widget _chartCard(String title, double height,
-      {required Widget child}) {
+  // ── Helpers ──────────────────────────────────────────────────────
+  Widget _buildCard({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
     return Container(
-      height: height,
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [_cardShadow()],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF111111),
-              )),
+          Row(children: [
+            Icon(icon, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(title,
+                style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1A1A2E))),
+          ]),
           const SizedBox(height: 16),
-          Expanded(child: child),
+          child,
         ],
       ),
     );
   }
 
-  Widget _emptyChart() {
-    return Center(
-      child: Text('No data available',
-          style: GoogleFonts.inter(
-              fontSize: 12, color: AppColors.muted)),
+  Widget _emptyChart([String msg = 'No data for this period']) {
+    return SizedBox(
+      height: 80,
+      child: Center(
+        child: Text(msg,
+            style: GoogleFonts.inter(
+                fontSize: 13, color: const Color(0xFFAAAAAA))),
+      ),
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-  String _weekLabel(DateTime d) {
-    final monday =
-        d.subtract(Duration(days: d.weekday - 1));
-    return 'W${monday.month}/${monday.day}';
-  }
+  BoxShadow _cardShadow() => BoxShadow(
+        color: Colors.black.withValues(alpha: 0.05),
+        blurRadius: 8,
+        offset: const Offset(0, 2),
+      );
 
-  String _monthLabel(DateTime d) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[d.month - 1]} ${d.year}';
-  }
-
-  String _fmtShort(DateTime d) =>
-      '${d.month}/${d.day}/${d.year}';
-
-  String _initials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  String _shortLabel(String key) {
+    final parts = key.split('-');
+    if (parts.length == 3) {
+      return '${parts[1]}/${parts[2].replaceAll('W', '')}';
     }
-    return name.isNotEmpty ? name[0].toUpperCase() : '?';
+    if (parts.length == 2) {
+      return '${parts[1]}/${parts[0].substring(2)}';
+    }
+    return key;
   }
+
+  String _fmt(DateTime d) =>
+      '${d.month.toString().padLeft(2, '0')}/'
+      '${d.day.toString().padLeft(2, '0')}/'
+      '${d.year}';
 }
