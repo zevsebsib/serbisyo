@@ -260,7 +260,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                '${_filteredRequests.length} request${_filteredRequests.length != 1 ? 's' : ''} found',
+                '${_filteredRequests.length} request'
+                '${_filteredRequests.length != 1 ? 's' : ''} found',
                 style: GoogleFonts.inter(
                     fontSize: 13, color: AppColors.muted),
               ),
@@ -417,7 +418,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
             borderRadius: BorderRadius.circular(10),
             child: Container(
               height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: _dateRange != null
                     ? AppColors.primary.withValues(alpha: 0.08)
@@ -440,7 +442,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   const SizedBox(width: 6),
                   Text(
                     _dateRange != null
-                        ? '${_fmtShort(_dateRange!.start)} – ${_fmtShort(_dateRange!.end)}'
+                        ? '${_fmtShort(_dateRange!.start)} – '
+                          '${_fmtShort(_dateRange!.end)}'
                         : 'Date Range',
                     style: GoogleFonts.inter(
                       fontSize: 12,
@@ -620,7 +623,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   Container(
                     width: 8, height: 8,
                     decoration: BoxDecoration(
-                        color: color, shape: BoxShape.circle),
+                        color: color,
+                        shape: BoxShape.circle),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -731,10 +735,10 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     final statusStyle = _getStatusStyle(r['status'] as String);
     final color       = statusStyle['color'] as Color;
     final label       = statusStyle['label'] as String;
-    final docUrls     =
+    final docUrls =
         r['documentUrls'] as Map<String, dynamic>? ?? {};
-    final missing     = r['missingDocuments'] as List? ?? [];
-    final hasDocs     = docUrls.isNotEmpty;
+    final missing = r['missingDocuments'] as List? ?? [];
+    final hasDocs = docUrls.isNotEmpty;
 
     return InkWell(
       onTap: () => _showRequestDialog(r),
@@ -805,10 +809,12 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
               flex: 2,
               child: Text(
                 (r['department'] as String?)?.isNotEmpty == true
-                    ? r['department'] as String : '—',
+                    ? r['department'] as String
+                    : '—',
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
-                    fontSize: 12, color: const Color(0xFF666666)),
+                    fontSize: 12,
+                    color: const Color(0xFF666666)),
               ),
             ),
             Expanded(
@@ -833,10 +839,12 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
               flex: 2,
               child: Text(
                 (r['assignedName'] as String?)?.isNotEmpty == true
-                    ? r['assignedName'] as String : '—',
+                    ? r['assignedName'] as String
+                    : '—',
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
-                    fontSize: 12, color: const Color(0xFF666666)),
+                    fontSize: 12,
+                    color: const Color(0xFF666666)),
               ),
             ),
             Expanded(
@@ -959,7 +967,9 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
               width: 32, height: 32,
               margin: const EdgeInsets.only(right: 4),
               decoration: BoxDecoration(
-                color: selected ? AppColors.primary : Colors.white,
+                color: selected
+                    ? AppColors.primary
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: selected
@@ -990,7 +1000,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // ── FIX: Added missing _pageBtn method ────────────────────────────────────
   Widget _pageBtn({
     required IconData icon,
     required bool enabled,
@@ -1018,11 +1027,11 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   // ── Request detail dialog ──────────────────────────────────────────────────
   void _showRequestDialog(Map<String, dynamic> r) {
     final statusStyle = _getStatusStyle(r['status'] as String);
-    final docUrls     =
+    final docUrls =
         r['documentUrls'] as Map<String, dynamic>? ?? {};
-    final missing     = List<String>.from(
+    final missing = List<String>.from(
         r['missingDocuments'] as List? ?? []);
-    final verStatus   =
+    final verStatus =
         r['verificationStatus']?.toString() ?? 'unverified';
 
     showDialog(
@@ -1041,14 +1050,14 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
             ),
             child: Column(
               children: [
-                // ── Header ──────────────────────────────────
+                // Header
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
                         Color(0xFFFF9200),
-                        Color(0xFFFF5E00)
+                        Color(0xFFFF5E00),
                       ],
                     ),
                     borderRadius: BorderRadius.only(
@@ -1112,7 +1121,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   ),
                 ),
 
-                // ── Body ────────────────────────────────────
+                // Body
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
@@ -1132,18 +1141,22 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                       r['trackingId'] as String),
                                   _detailRow('Service',
                                       r['serviceName'] as String),
-                                  _detailRow('Category',
-                                      (r['category'] as String?)
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? r['category'] as String
-                                          : '—'),
-                                  _detailRow('Department',
-                                      (r['department'] as String?)
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? r['department'] as String
-                                          : '—'),
+                                  _detailRow(
+                                    'Category',
+                                    (r['category'] as String?)
+                                                ?.isNotEmpty ==
+                                            true
+                                        ? r['category'] as String
+                                        : '—',
+                                  ),
+                                  _detailRow(
+                                    'Department',
+                                    (r['department'] as String?)
+                                                ?.isNotEmpty ==
+                                            true
+                                        ? r['department'] as String
+                                        : '—',
+                                  ),
                                   _detailRow('Date Submitted',
                                       _fmtTs(r['createdAt']
                                           as Timestamp?)),
@@ -1160,26 +1173,32 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                 [
                                   _detailRow('Citizen',
                                       r['citizenName'] as String),
-                                  _detailRow('Email',
-                                      (r['citizenEmail']
-                                                      as String?)
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? r['citizenEmail'] as String
-                                          : '—'),
-                                  _detailRow('Assigned To',
-                                      (r['assignedName']
-                                                      as String?)
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? r['assignedName'] as String
-                                          : 'Unassigned'),
+                                  _detailRow(
+                                    'Email',
+                                    (r['citizenEmail'] as String?)
+                                                ?.isNotEmpty ==
+                                            true
+                                        ? r['citizenEmail'] as String
+                                        : '—',
+                                  ),
+                                  _detailRow(
+                                    'Assigned To',
+                                    (r['assignedName'] as String?)
+                                                ?.isNotEmpty ==
+                                            true
+                                        ? r['assignedName'] as String
+                                        : 'Unassigned',
+                                  ),
                                   _detailRow('Current Status',
-                                      statusStyle['label'] as String),
-                                  if ((r['rejectionReason'] as String)
+                                      statusStyle['label']
+                                          as String),
+                                  if ((r['rejectionReason']
+                                          as String)
                                       .isNotEmpty)
-                                    _detailRow('Rejection Reason',
-                                        r['rejectionReason'] as String),
+                                    _detailRow(
+                                        'Rejection Reason',
+                                        r['rejectionReason']
+                                            as String),
                                 ],
                               ),
                             ),
@@ -1199,18 +1218,24 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                 Row(
                                   children: [
                                     Container(
-                                      padding:
-                                          const EdgeInsets.symmetric(
+                                      padding: const EdgeInsets
+                                          .symmetric(
                                               horizontal: 10,
                                               vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: verStatus == 'verified'
-                                            ? const Color(0xFF10B981)
-                                                .withValues(alpha: 0.10)
-                                            : const Color(0xFFF59E0B)
-                                                .withValues(alpha: 0.10),
+                                        color: verStatus ==
+                                                'verified'
+                                            ? const Color(
+                                                    0xFF10B981)
+                                                .withValues(
+                                                    alpha: 0.10)
+                                            : const Color(
+                                                    0xFFF59E0B)
+                                                .withValues(
+                                                    alpha: 0.10),
                                         borderRadius:
-                                            BorderRadius.circular(20),
+                                            BorderRadius.circular(
+                                                20),
                                       ),
                                       child: Text(
                                         verStatus == 'verified'
@@ -1218,10 +1243,14 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                             : '⏳ Pending Verification',
                                         style: GoogleFonts.inter(
                                           fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: verStatus == 'verified'
-                                              ? const Color(0xFF10B981)
-                                              : const Color(0xFFF59E0B),
+                                          fontWeight:
+                                              FontWeight.w700,
+                                          color: verStatus ==
+                                                  'verified'
+                                              ? const Color(
+                                                  0xFF10B981)
+                                              : const Color(
+                                                  0xFFF59E0B),
                                         ),
                                       ),
                                     ),
@@ -1231,36 +1260,43 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                         onPressed: () async {
                                           await FirebaseFirestore
                                               .instance
-                                              .collection('requests')
-                                              .doc(r['id'] as String)
+                                              .collection(
+                                                  'requests')
+                                              .doc(
+                                                  r['id'] as String)
                                               .update({
                                             'verificationStatus':
                                                 'verified',
-                                            'updatedAt': FieldValue
-                                                .serverTimestamp(),
+                                            'updatedAt':
+                                                FieldValue
+                                                    .serverTimestamp(),
                                           });
-                                          // FIX: capture nav before async gap
                                           if (mounted) {
                                             final nav =
                                                 Navigator.of(ctx);
                                             nav.pop();
                                             _showSnack(
                                                 'Documents marked as verified ✓',
-                                                const Color(0xFF10B981));
+                                                const Color(
+                                                    0xFF10B981));
                                             _loadData();
                                           }
                                         },
                                         icon: const Icon(
                                             Icons.verified_rounded,
                                             size: 14),
-                                        label: Text('Mark Verified',
+                                        label: Text(
+                                            'Mark Verified',
                                             style: GoogleFonts.inter(
                                                 fontSize: 12,
                                                 fontWeight:
-                                                    FontWeight.w600)),
-                                        style: TextButton.styleFrom(
+                                                    FontWeight
+                                                        .w600)),
+                                        style:
+                                            TextButton.styleFrom(
                                           foregroundColor:
-                                              const Color(0xFF10B981),
+                                              const Color(
+                                                  0xFF10B981),
                                         ),
                                       ),
                                   ],
@@ -1275,24 +1311,28 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                   return Container(
                                     margin: const EdgeInsets.only(
                                         bottom: 8),
-                                    padding:
-                                        const EdgeInsets.symmetric(
+                                    padding: const EdgeInsets
+                                        .symmetric(
                                             horizontal: 14,
                                             vertical: 10),
                                     decoration: BoxDecoration(
                                       color: isMissing
                                           ? const Color(0xFFEF4444)
-                                              .withValues(alpha: 0.05)
+                                              .withValues(
+                                                  alpha: 0.05)
                                           : const Color(0xFF10B981)
-                                              .withValues(alpha: 0.05),
+                                              .withValues(
+                                                  alpha: 0.05),
                                       borderRadius:
                                           BorderRadius.circular(10),
                                       border: Border.all(
                                         color: isMissing
                                             ? const Color(0xFFEF4444)
-                                                .withValues(alpha: 0.20)
+                                                .withValues(
+                                                    alpha: 0.20)
                                             : const Color(0xFF10B981)
-                                                .withValues(alpha: 0.20),
+                                                .withValues(
+                                                    alpha: 0.20),
                                       ),
                                     ),
                                     child: Row(
@@ -1305,8 +1345,10 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                                   .description_rounded,
                                           size: 16,
                                           color: isMissing
-                                              ? const Color(0xFFEF4444)
-                                              : const Color(0xFF10B981),
+                                              ? const Color(
+                                                  0xFFEF4444)
+                                              : const Color(
+                                                  0xFF10B981),
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
@@ -1316,11 +1358,12 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                                     .start,
                                             children: [
                                               Text(docName,
-                                                  style:
-                                                      GoogleFonts.inter(
+                                                  style: GoogleFonts
+                                                      .inter(
                                                     fontSize: 12,
                                                     fontWeight:
-                                                        FontWeight.w600,
+                                                        FontWeight
+                                                            .w600,
                                                     color: const Color(
                                                         0xFF333333),
                                                   )),
@@ -1329,7 +1372,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                                     'Flagged as missing',
                                                     style: GoogleFonts
                                                         .inter(
-                                                            fontSize: 10,
+                                                            fontSize:
+                                                                10,
                                                             color: const Color(
                                                                 0xFFEF4444))),
                                             ],
@@ -1347,20 +1391,22 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                             }
                                           },
                                           icon: const Icon(
-                                              Icons.open_in_new_rounded,
+                                              Icons
+                                                  .open_in_new_rounded,
                                               size: 13),
                                           label: Text('View',
-                                              style: GoogleFonts.inter(
+                                              style:
+                                                  GoogleFonts.inter(
                                                 fontSize: 12,
                                                 fontWeight:
                                                     FontWeight.w600,
                                               )),
-                                          style: TextButton.styleFrom(
+                                          style:
+                                              TextButton.styleFrom(
                                             foregroundColor:
                                                 AppColors.primary,
-                                            padding:
-                                                const EdgeInsets
-                                                    .symmetric(
+                                            padding: const EdgeInsets
+                                                .symmetric(
                                                     horizontal: 10,
                                                     vertical: 6),
                                           ),
@@ -1372,19 +1418,22 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                             if (isMissing) {
                                               await FirebaseFirestore
                                                   .instance
-                                                  .collection('requests')
+                                                  .collection(
+                                                      'requests')
                                                   .doc(requestId)
                                                   .update({
                                                 'missingDocuments':
-                                                    FieldValue.arrayRemove(
-                                                        [docName]),
-                                                'updatedAt': FieldValue
-                                                    .serverTimestamp(),
+                                                    FieldValue
+                                                        .arrayRemove(
+                                                            [docName]),
+                                                'updatedAt':
+                                                    FieldValue
+                                                        .serverTimestamp(),
                                               });
-                                              // FIX: capture nav before async gap
                                               if (mounted) {
                                                 final nav =
-                                                    Navigator.of(ctx);
+                                                    Navigator.of(
+                                                        ctx);
                                                 nav.pop();
                                                 _showSnack(
                                                     '$docName unflagged',
@@ -1395,19 +1444,22 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                             } else {
                                               await FirebaseFirestore
                                                   .instance
-                                                  .collection('requests')
+                                                  .collection(
+                                                      'requests')
                                                   .doc(requestId)
                                                   .update({
                                                 'missingDocuments':
-                                                    FieldValue.arrayUnion(
-                                                        [docName]),
-                                                'updatedAt': FieldValue
-                                                    .serverTimestamp(),
+                                                    FieldValue
+                                                        .arrayUnion(
+                                                            [docName]),
+                                                'updatedAt':
+                                                    FieldValue
+                                                        .serverTimestamp(),
                                               });
-                                              // FIX: capture nav before async gap
                                               if (mounted) {
                                                 final nav =
-                                                    Navigator.of(ctx);
+                                                    Navigator.of(
+                                                        ctx);
                                                 nav.pop();
                                                 _showSnack(
                                                     '$docName flagged as missing',
@@ -1430,15 +1482,19 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                                 : 'Flag Missing',
                                             style: GoogleFonts.inter(
                                               fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                              fontWeight:
+                                                  FontWeight.w600,
                                             ),
                                           ),
-                                          style: TextButton.styleFrom(
+                                          style:
+                                              TextButton.styleFrom(
                                             foregroundColor: isMissing
-                                                ? const Color(0xFF10B981)
-                                                : const Color(0xFFF59E0B),
-                                            padding:
-                                                const EdgeInsets.symmetric(
+                                                ? const Color(
+                                                    0xFF10B981)
+                                                : const Color(
+                                                    0xFFF59E0B),
+                                            padding: const EdgeInsets
+                                                .symmetric(
                                                     horizontal: 10,
                                                     vertical: 6),
                                           ),
@@ -1478,9 +1534,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                             'Status History',
                             [],
                             child: Column(
-                              children:
-                                  (r['statusHistory'] as List)
-                                      .map((h) {
+                              children: (r['statusHistory'] as List)
+                                  .map((h) {
                                 final hMap =
                                     h as Map<String, dynamic>;
                                 final hStyle = _getStatusStyle(
@@ -1520,7 +1575,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                           hMap['note'].toString(),
                                           style: GoogleFonts.inter(
                                               fontSize: 11,
-                                              color: AppColors.muted),
+                                              color:
+                                                  AppColors.muted),
                                         ),
                                       const SizedBox(width: 8),
                                       Text(
@@ -1542,7 +1598,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   ),
                 ),
 
-                // ── Footer ──────────────────────────────────
+                // Footer
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 24, vertical: 16),
@@ -1605,7 +1661,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                             _showAssignDialog(r);
                           },
                           icon: const Icon(
-                              Icons.person_add_rounded, size: 15),
+                              Icons.person_add_rounded,
+                              size: 15),
                           label: Text('Assign Staff',
                               style: GoogleFonts.inter(
                                   fontSize: 13,
@@ -1790,6 +1847,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
+  // ── ✅ REVISED: _assignStaff with citizen notification ────────────────────
   Future<void> _assignStaff(
       String requestId, String staffUid) async {
     try {
@@ -1798,6 +1856,20 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         orElse: () => {'fullName': 'Staff'},
       )['fullName'] as String;
 
+      // Get userId + trackingId from the request
+      final reqDoc = await FirebaseFirestore.instance
+          .collection('requests')
+          .doc(requestId)
+          .get();
+      final userId     =
+          reqDoc.data()?['userId']?.toString() ?? '';
+      final trackingId =
+          reqDoc.data()?['trackingId']?.toString() ?? '';
+      final serviceName =
+          reqDoc.data()?['serviceName']?.toString() ??
+              'your request';
+
+      // Update the request
       await FirebaseFirestore.instance
           .collection('requests')
           .doc(requestId)
@@ -1816,8 +1888,27 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         ]),
       });
 
+      // ── Send notification to citizen ───────────────────────
+      if (userId.isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('notifications')
+            .doc(userId)
+            .collection('items')
+            .add({
+          'title': 'Request Assigned',
+          'body':
+              'Your request ($trackingId) for $serviceName '
+              'has been assigned to a staff member and is now '
+              'under review.',
+          'type':      'status_update',
+          'isRead':    false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
       if (mounted) {
-        _showSnack('Request assigned to $staffName ✓',
+        _showSnack(
+            'Request assigned to $staffName ✓',
             AppColors.success);
         _loadData();
       }
@@ -1830,8 +1921,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
 
   // ── Update Status dialog ───────────────────────────────────────────────────
   void _showUpdateStatusDialog(Map<String, dynamic> r) {
-    String selectedStatus    = r['status'] as String;
-    final noteController     = TextEditingController();
+    String selectedStatus = r['status'] as String;
+    final noteController  = TextEditingController();
     final finalDocController = TextEditingController(
         text: r['finalDocumentUrl']?.toString() ?? '');
 
@@ -1860,7 +1951,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                           fontSize: 13,
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
-                  // ✅ Full unified pipeline
                   ...[
                     'submitted',
                     'pending_review',
@@ -1939,7 +2029,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                       decoration: InputDecoration(
                         hintText: 'https://...',
                         hintStyle: GoogleFonts.inter(
-                            color: AppColors.muted, fontSize: 12),
+                            color: AppColors.muted,
+                            fontSize: 12),
                         filled: true,
                         fillColor: const Color(0xFFF7F8FC),
                         contentPadding:
@@ -1982,21 +2073,26 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                           color: AppColors.muted, fontSize: 12),
                       filled: true,
                       fillColor: const Color(0xFFF7F8FC),
-                      contentPadding: const EdgeInsets.all(12),
+                      contentPadding:
+                          const EdgeInsets.all(12),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius:
+                            BorderRadius.circular(10),
                         borderSide: const BorderSide(
                             color: Color(0xFFEEEEEE)),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius:
+                            BorderRadius.circular(10),
                         borderSide: const BorderSide(
                             color: Color(0xFFEEEEEE)),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius:
+                            BorderRadius.circular(10),
                         borderSide: const BorderSide(
-                            color: AppColors.primary, width: 1.5),
+                            color: AppColors.primary,
+                            width: 1.5),
                       ),
                     ),
                   ),
@@ -2014,7 +2110,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
             ElevatedButton(
               onPressed: () async {
                 final note     = noteController.text.trim();
-                final finalDoc = finalDocController.text.trim();
+                final finalDoc =
+                    finalDocController.text.trim();
                 Navigator.pop(ctx);
                 await _updateStatus(r['id'] as String,
                     selectedStatus, note, finalDoc);
@@ -2036,9 +2133,27 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  Future<void> _updateStatus(String requestId, String status,
-      String note, String finalDocUrl) async {
+  // ── ✅ REVISED: _updateStatus with citizen notification ───────────────────
+  Future<void> _updateStatus(
+      String requestId,
+      String status,
+      String note,
+      String finalDocUrl) async {
     try {
+      // Get request data first
+      final reqDoc = await FirebaseFirestore.instance
+          .collection('requests')
+          .doc(requestId)
+          .get();
+      final userId =
+          reqDoc.data()?['userId']?.toString() ?? '';
+      final serviceName =
+          reqDoc.data()?['serviceName']?.toString() ??
+              'your request';
+      final trackingId =
+          reqDoc.data()?['trackingId']?.toString() ?? '';
+
+      // Build update payload
       final Map<String, dynamic> updateData = {
         'status':    status,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -2060,6 +2175,81 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
           .collection('requests')
           .doc(requestId)
           .update(updateData);
+
+      // ── Send notification to citizen ───────────────────────
+      if (userId.isNotEmpty) {
+        String notifTitle = 'Request Update';
+        String notifBody  =
+            'Your request status has been updated.';
+        String notifType  = 'status_update';
+
+        switch (status) {
+          case 'pending_review':
+            notifTitle = 'Request Under Review';
+            notifBody  =
+                'Your request ($trackingId) for $serviceName '
+                'is now being reviewed by our staff.';
+            notifType  = 'status_update';
+            break;
+          case 'processing':
+            notifTitle = 'Request Being Processed';
+            notifBody  =
+                'Your request ($trackingId) for $serviceName '
+                'is currently being processed.';
+            notifType  = 'status_update';
+            break;
+          case 'approved':
+            notifTitle = 'Request Approved ✓';
+            notifBody  =
+                'Your request ($trackingId) for $serviceName '
+                'has been approved and is being finalized.';
+            notifType  = 'status_update';
+            break;
+          case 'ready_for_pickup':
+            notifTitle = 'Ready for Pick Up 🎉';
+            notifBody  =
+                'Your document for $serviceName ($trackingId) '
+                'is ready. Please visit City Hall to claim it.';
+            notifType  = 'received';
+            break;
+          case 'completed':
+            notifTitle = 'Request Completed ✅';
+            notifBody  = finalDocUrl.isNotEmpty
+                ? 'Your request ($trackingId) is complete. '
+                  'Your document is available for download.'
+                : 'Your request ($trackingId) for $serviceName '
+                  'has been completed successfully.';
+            notifType  = 'completed';
+            break;
+          case 'rejected':
+            notifTitle = 'Action Required';
+            notifBody  = note.isNotEmpty
+                ? 'Your request ($trackingId) could not be '
+                  'processed. Reason: $note'
+                : 'Your request ($trackingId) for $serviceName '
+                  'requires attention. Please contact City Hall.';
+            notifType  = 'action_required';
+            break;
+          default:
+            notifTitle = 'Request Update';
+            notifBody  =
+                'Your request ($trackingId) status has been '
+                'updated to ${_getStatusStyle(status)['label']}.';
+            notifType  = 'status_update';
+        }
+
+        await FirebaseFirestore.instance
+            .collection('notifications')
+            .doc(userId)
+            .collection('items')
+            .add({
+          'title':     notifTitle,
+          'body':      notifBody,
+          'type':      notifType,
+          'isRead':    false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       if (mounted) {
         _showSnack('Status updated successfully ✓',
@@ -2090,7 +2280,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // ── Status styles — full unified pipeline ─────────────────────────────────
+  // ── Status styles ──────────────────────────────────────────────────────────
   Map<String, dynamic> _getStatusStyle(String status) {
     switch (status) {
       case 'submitted':
@@ -2151,8 +2341,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     if (ts == null) return '—';
     final d = ts.toDate();
     const months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec'
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }

@@ -138,7 +138,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
         await FirebaseAuth.instance.signOut();
         if (mounted) {
           setState(() {
-            _error     = 'No admin account found for this email.';
+            _error =
+                'No admin account found for this email.';
             _isLoading = false;
           });
         }
@@ -205,10 +206,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
     );
   }
 
-  // ── SIDEBAR ────────────────────────────────────────────────────────────────
   Widget _buildSidebar() {
     return Container(
-      // ✅ Orange gradient background
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -225,7 +224,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
         Positioned.fill(
           child: CustomPaint(painter: _DotGridPainter()),
         ),
-        // Top accent bar — slightly darker orange
         Positioned(
           top: 0, left: 0, right: 0,
           child: Container(
@@ -239,34 +237,27 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Logo row
                 Row(children: [
                   Container(
-                    width: 48, height: 48,
+                    width: 100, height: 100,
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                      color: Colors.transparent,
+                      shape: BoxShape.circle,
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset('assets/logo.jpg',
-                          fit: BoxFit.cover),
+                    child: ClipOval(
+                      child: Image.asset(
+                          'assets/rsz_lc_seal.webp.',
+                          fit: BoxFit.contain),
                     ),
                   ),
                   const SizedBox(width: 14),
                   Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
                     children: [
                       Text('SerbisyoAlisto',
                           style: GoogleFonts.dmSans(
-                            fontSize: 17,
+                            fontSize: 30,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           )),
@@ -282,7 +273,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
 
                 const SizedBox(height: 48),
 
-                // Tag badge — white on orange
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 4),
@@ -290,7 +280,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                     color: Colors.white.withValues(alpha: 0.20),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.40)),
+                        color: Colors.white
+                            .withValues(alpha: 0.40)),
                   ),
                   child: Text('ADMIN PORTAL',
                       style: GoogleFonts.dmSans(
@@ -327,10 +318,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                 Container(
                     height: 1,
                     color: Colors.white.withValues(alpha: 0.25)),
-
                 const SizedBox(height: 32),
 
-                // Feature items
                 ..._sidebarFeatures.map((f) => Padding(
                       padding: const EdgeInsets.only(bottom: 22),
                       child: Row(
@@ -349,8 +338,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                       .withValues(alpha: 0.25)),
                             ),
                             child: Icon(f.icon,
-                                size: 17,
-                                color: Colors.white),
+                                size: 17, color: Colors.white),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -402,7 +390,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
     );
   }
 
-  // ── FORM PANEL ─────────────────────────────────────────────────────────────
   Widget _buildFormPanel() {
     return Container(
       color: const Color(0xFFF0F2F5),
@@ -414,7 +401,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(40),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
+                constraints:
+                    const BoxConstraints(maxWidth: 420),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -521,28 +509,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
             ),
           ),
           const SizedBox(height: 24),
+          // ✅ Only email/password — Google removed
           _buildSignInBtn(),
-          const SizedBox(height: 18),
-          Row(children: [
-            Expanded(
-                child: Container(
-                    height: 1,
-                    color: const Color(0xFFE5E7EB))),
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14),
-              child: Text('or',
-                  style: GoogleFonts.dmSans(
-                      fontSize: 12,
-                      color: const Color(0xFF9CA3AF))),
-            ),
-            Expanded(
-                child: Container(
-                    height: 1,
-                    color: const Color(0xFFE5E7EB))),
-          ]),
-          const SizedBox(height: 18),
-          _buildGoogleBtn(),
         ],
       ),
     );
@@ -625,7 +593,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
+                      color: Colors.black
+                          .withValues(alpha: 0.06),
                       blurRadius: 6,
                       offset: const Offset(0, 1),
                     )
@@ -721,8 +690,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
         hintText: hint,
         hintStyle: GoogleFonts.dmSans(
             color: const Color(0xFFD1D5DB), fontSize: 13),
-        prefixIcon: Icon(icon,
-            size: 17, color: const Color(0xFFD1D5DB)),
+        prefixIcon:
+            Icon(icon, size: 17, color: const Color(0xFFD1D5DB)),
         suffixIcon: suffix,
         filled: true,
         fillColor: const Color(0xFFF9FAFB),
@@ -777,41 +746,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
     );
   }
 
-  Widget _buildGoogleBtn() {
-    return SizedBox(
-      width: double.infinity,
-      height: 46,
-      child: OutlinedButton(
-        onPressed: () => setState(
-            () => _error = 'Google Sign-In coming soon.'),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Color(0xFFE5E7EB)),
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('G',
-                style: GoogleFonts.dmSans(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF4285F4),
-                )),
-            const SizedBox(width: 10),
-            Text('Continue with Google',
-                style: GoogleFonts.dmSans(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF374151),
-                )),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildRegisterLink() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -845,24 +779,23 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints:
+                  const BoxConstraints(maxWidth: 420),
               child: Column(
                 children: [
                   Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment:
+                          MainAxisAlignment.center,
                       children: [
                     Container(
                       width: 40, height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: const Color(0xFFE5E7EB)),
+                        color: Colors.transparent,
+                        shape: BoxShape.circle,
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.asset('assets/logo.jpg',
-                            fit: BoxFit.cover),
+                      child: ClipOval(
+                        child: Image.asset('assets/serbisyo.png',
+                            fit: BoxFit.contain),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -879,7 +812,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                         Text('Admin Portal',
                             style: GoogleFonts.dmSans(
                                 fontSize: 11,
-                                color: const Color(0xFF6B7280))),
+                                color:
+                                    const Color(0xFF6B7280))),
                       ],
                     ),
                   ]),
