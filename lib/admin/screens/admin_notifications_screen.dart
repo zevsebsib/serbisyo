@@ -353,7 +353,8 @@ class _AdminNotificationsScreenState
                                     'createdAt': FieldValue.serverTimestamp(),
                                   });
                                   if (mounted) {
-                                    Navigator.pop(ctx);
+                                    final nav = Navigator.of(ctx);
+                                    nav.pop();
                                     _showSnack(
                                         'Notification sent ✓',
                                         AppColors.success);
@@ -737,13 +738,268 @@ class _AdminNotificationsScreenState
     );
   }
 
+  // ── Notification detail popup ──────────────────────────────────────────────
+  void _showNotificationDetail(Map<String, dynamic> n) {
+    final type     = n['type'] as String;
+    final typeConf = _typeConfig(type);
+    final isRead   = n['isRead'] as bool;
+    final ts       = n['createdAt'] as Timestamp?;
+
+    // Auto-mark as read when opened
+    if (!isRead) {
+      (n['ref'] as DocumentReference).update({'isRead': true});
+      setState(() => n['isRead'] = true);
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => Dialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
+          child: SizedBox(
+            width: 500,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Header ──────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: (typeConf['color'] as Color)
+                        .withValues(alpha: 0.08),
+                    borderRadius: const BorderRadius.only(
+                      topLeft:  Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48, height: 48,
+                        decoration: BoxDecoration(
+                          color: (typeConf['color'] as Color)
+                              .withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          typeConf['icon'] as IconData,
+                          color: typeConf['color'] as Color,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding:
+                                  const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3),
+                              decoration: BoxDecoration(
+                                color:
+                                    (typeConf['color'] as Color)
+                                        .withValues(alpha: 0.15),
+                                borderRadius:
+                                    BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                typeConf['label'] as String,
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color:
+                                      typeConf['color'] as Color,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              n['title'] as String,
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF111111),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close,
+                            size: 18, color: AppColors.muted),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── Body ────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Recipient row
+                      _popupDetailRow(
+                          Icons.person_rounded,
+                          'Recipient',
+                          n['citizen'] as String),
+                      const SizedBox(height: 12),
+                      // Date row
+                      _popupDetailRow(
+                          Icons.calendar_today_rounded,
+                          'Date',
+                          _fmtTs(ts)),
+                      const SizedBox(height: 16),
+                      // Message body
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7F8FC),
+                          borderRadius:
+                              BorderRadius.circular(12),
+                          border: Border.all(
+                              color: const Color(0xFFEEEEEE)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text('Message',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.muted,
+                                  letterSpacing: 0.5,
+                                )),
+                            const SizedBox(height: 8),
+                            Text(
+                              n['body'] as String,
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: const Color(0xFF333333),
+                                height: 1.6,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── Footer ──────────────────────────────────────
+                Padding(
+                  padding:
+                      const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          _toggleRead(n);
+                          Navigator.pop(ctx);
+                        },
+                        icon: Icon(
+                          (n['isRead'] as bool)
+                              ? Icons.mark_email_unread_rounded
+                              : Icons.mark_email_read_rounded,
+                          size: 15,
+                        ),
+                        label: Text(
+                          (n['isRead'] as bool)
+                              ? 'Mark Unread'
+                              : 'Mark Read',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(
+                              color: AppColors.primary),
+                          shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
+                        ),
+                        child: Text('Close',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            )),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _popupDetailRow(
+      IconData icon, String label, String value) {
+    return Row(children: [
+      Container(
+        width: 32, height: 32,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, size: 15, color: AppColors.primary),
+      ),
+      const SizedBox(width: 10),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.muted,
+              )),
+          Text(value,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF222222),
+              )),
+        ],
+      ),
+    ]);
+  }
+
   Widget _buildRow(Map<String, dynamic> n) {
     final isRead   = n['isRead'] as bool;
     final type     = n['type'] as String;
     final typeConf = _typeConfig(type);
 
     return InkWell(
-      onTap: () => _toggleRead(n),
+      onTap: () => _showNotificationDetail(n),
       hoverColor: const Color(0xFFFFF7ED),
       child: Container(
         color: isRead

@@ -49,6 +49,5 @@ flutter:
 
   assets:
     - assets/logo.jpg
-    - assets/rsz_lc_seal.webp
     - assets/serbisyo.png
     - assets/serbisyologo.png

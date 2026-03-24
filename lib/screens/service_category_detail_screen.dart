@@ -11,7 +11,8 @@ class ServiceCategoryDetailScreen extends StatelessWidget {
 
   static const Map<String, Map<String, dynamic>> categoryData = {
     'mayor': {
-      'title': 'Provision of Customer Assistance',
+      'title':      'Provision of Customer Assistance',
+      'department': 'City Administration Office',
       'options': [
         'For Recommendation Letter',
         'For Recommendation Letter for Transfer',
@@ -22,7 +23,8 @@ class ServiceCategoryDetailScreen extends StatelessWidget {
       ]
     },
     'civil': {
-      'title': 'Office of the City Civil Registrar',
+      'title':      'Office of the City Civil Registrar',
+      'department': 'Office of the City Civil Registrar',
       'options': [
         'Registration of Live Birth, Death and Marriage',
         'Late Registration of Birth, Death or Marriage',
@@ -34,7 +36,8 @@ class ServiceCategoryDetailScreen extends StatelessWidget {
       ]
     },
     'community': {
-      'title': 'Office of the Community Affairs',
+      'title':      'Office of the Community Affairs',
+      'department': 'Office of the City Community Affairs',
       'options': [
         'Local Employment Referrals (Applicants)',
         'Local Employment Referrals (Employers)',
@@ -49,8 +52,9 @@ class ServiceCategoryDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = categoryData[categoryId] ?? {'title': 'Services', 'options': []};
-    final String title = data['title'] as String;
+    final data = categoryData[categoryId] ?? {'title': 'Services', 'department': '', 'options': []};
+    final String title      = data['title'] as String;
+    final String department = data['department'] as String;
     final List<String> options = List<String>.from(data['options'] as Iterable);
 
     return Scaffold(
@@ -70,7 +74,7 @@ class ServiceCategoryDetailScreen extends StatelessWidget {
               style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black.withOpacity(0.3), letterSpacing: 2.0)
             ),
             const SizedBox(height: 32),
-            ...options.map((option) => _buildOptionItem(context, option)),
+            ...options.map((option) => _buildOptionItem(context, option, department)),
             const SizedBox(height: 120),
           ],
         ),
@@ -79,7 +83,7 @@ class ServiceCategoryDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildOptionItem(BuildContext context, String option) {
+  Widget _buildOptionItem(BuildContext context, String option, String department) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Material(
@@ -87,7 +91,11 @@ class ServiceCategoryDetailScreen extends StatelessWidget {
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
-            Navigator.pushNamed(context, '/service_form', arguments: {'serviceName': option});
+            Navigator.pushNamed(context, '/service_form', arguments: {
+              'serviceName': option,
+              'category':    categoryId,
+              'department':  department,
+            });
           },
           borderRadius: BorderRadius.circular(24),
           child: Container(

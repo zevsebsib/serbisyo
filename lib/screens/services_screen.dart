@@ -23,6 +23,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
       lightColor: const Color(0xFFEEF0FD),
       title: "City Mayor's Office",
       subtitle: 'Administrative Division',
+      department: 'City Administration Office',
       services: [
         'Provision of Consumer Assistance',
         'Issuance of Certificate of Good Moral Character',
@@ -37,6 +38,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
       lightColor: const Color(0xFFE6F7F1),
       title: 'Civil Registry',
       subtitle: 'Records & Documentation',
+      department: 'Office of the City Civil Registrar',
       services: [
         'Registration of Live Birth, Death and Marriage',
         'Late Registration of Birth, Death or Marriage',
@@ -53,6 +55,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
       lightColor: const Color(0xFFFFF5EB),
       title: 'Community Affairs',
       subtitle: 'Employment & Livelihood',
+      department: 'Office of the City Community Affairs',
       services: [
         'Local Employment Referral (Applicants)',
         'Local Employment Referral (Employers)',
@@ -82,6 +85,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
               lightColor: cat.lightColor,
               title: cat.title,
               subtitle: cat.subtitle,
+              department: cat.department,
               services: matchedServices,
             );
           }
@@ -391,7 +395,11 @@ class _CategoryCardState extends State<_CategoryCard> {
                     onTap: () => Navigator.pushNamed(
                       context,
                       '/service_form',
-                      arguments: {'serviceName': entry.value},
+                      arguments: {
+                        'serviceName': entry.value,
+                        'category':    cat.id,
+                        'department':  cat.department,
+                      },
                     ),
                   );
                 }),
@@ -478,6 +486,7 @@ class ServiceCategory {
   final String title;
   final String subtitle;
   final List<String> services;
+  final String department; // ← added
 
   const ServiceCategory({
     required this.id,
@@ -487,5 +496,6 @@ class ServiceCategory {
     required this.title,
     required this.subtitle,
     required this.services,
+    required this.department,
   });
 }

@@ -1,3 +1,12 @@
+import java.util.Properties
+
+// ── Load key.properties ────────────────────────────────────────────────────
+val keyProperties = Properties()
+val keyPropertiesFile = rootProject.file("key.properties")
+if (keyPropertiesFile.exists()) {
+    keyPropertiesFile.inputStream().use { keyProperties.load(it) }
+}
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -24,19 +33,33 @@ android {
 
     defaultConfig {
         applicationId = "com.serbisyoalisto.serbisyo_alisto_1"
-        minSdk = flutter.minSdkVersion                          // CHANGED: was flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    // ── Signing configs ────────────────────────────────────────────────────
+    signingConfigs {
+        create("customDebug") {
+            keyAlias     = keyProperties["keyAlias"]     as String? ?: "androiddebugkey"
+            keyPassword  = keyProperties["keyPassword"]  as String? ?: "android"
+            storeFile    = file(keyProperties["storeFile"] as String? ?: "${System.getProperty("user.home")}/.android/debug.keystore")
+            storePassword = keyProperties["storePassword"] as String? ?: "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("customDebug")
+        }
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            // Use same custom signing for release until you have a release keystore
+            signingConfig = signingConfigs.getByName("customDebug")
         }
     }
 }
 
 flutter {
     source = "../.."
-}
+} 

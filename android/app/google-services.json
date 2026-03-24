@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "337041247718-5q2f55hn6b8hjubmlftd8khe285vbne1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.serbisyoalisto.serbisyo_alisto_1",
+            "certificate_hash": "23ec6b6ac521947b71caa1a577aba48ca4914ed2"
+          }
+        },
+        {
           "client_id": "337041247718-sf466mblbrva1o84ddeka87pcvvi55q8.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -246,7 +246,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                     ),
                     child: ClipOval(
                       child: Image.asset(
-                          'assets/rsz_lc_seal.webp.',
+                          'assets/serbisyo.png',
                           fit: BoxFit.contain),
                     ),
                   ),

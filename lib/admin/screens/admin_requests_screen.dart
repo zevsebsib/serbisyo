@@ -1851,29 +1851,43 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   Future<void> _assignStaff(
       String requestId, String staffUid) async {
     try {
-      final staffName = _staffList.firstWhere(
+      final staffEntry = _staffList.firstWhere(
         (s) => s['uid'] == staffUid,
-        orElse: () => {'fullName': 'Staff'},
-      )['fullName'] as String;
+        orElse: () => {'fullName': 'Staff', 'uid': staffUid},
+      );
+      final staffName = staffEntry['fullName'] as String;
+
+      // ── Get staff's department from Firestore ──────────────
+      String staffDepartment = '';
+      String staffDepartmentId = '';
+      try {
+        final staffDoc = await FirebaseFirestore.instance
+            .collection('admin')
+            .doc(staffUid)
+            .get();
+        staffDepartment   = staffDoc.data()?['department']   as String? ?? '';
+        staffDepartmentId = staffDoc.data()?['departmentId'] as String? ?? '';
+        // fallback: look up department name by departmentId
+        if (staffDepartment.isEmpty && staffDepartmentId.isNotEmpty) {
+          final deptDoc = await FirebaseFirestore.instance
+              .collection('departments')
+              .doc(staffDepartmentId)
+              .get();
+          staffDepartment = deptDoc.data()?['name'] as String? ?? '';
+        }
+      } catch (_) {}
 
       // Get userId + trackingId from the request
       final reqDoc = await FirebaseFirestore.instance
           .collection('requests')
           .doc(requestId)
           .get();
-      final userId     =
-          reqDoc.data()?['userId']?.toString() ?? '';
-      final trackingId =
-          reqDoc.data()?['trackingId']?.toString() ?? '';
-      final serviceName =
-          reqDoc.data()?['serviceName']?.toString() ??
-              'your request';
+      final userId      = reqDoc.data()?['userId']?.toString()      ?? '';
+      final trackingId  = reqDoc.data()?['trackingId']?.toString()  ?? '';
+      final serviceName = reqDoc.data()?['serviceName']?.toString() ?? 'your request';
 
-      // Update the request
-      await FirebaseFirestore.instance
-          .collection('requests')
-          .doc(requestId)
-          .update({
+      // ── Build update payload ───────────────────────────────
+      final Map<String, dynamic> updatePayload = {
         'assignedTo': staffUid,
         'assignedBy': _currentUid,
         'assignedAt': FieldValue.serverTimestamp(),
@@ -1886,7 +1900,21 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
             'note':      'Assigned to $staffName',
           }
         ]),
-      });
+      };
+
+      // Only update department if the request has none and staff has one
+      if (staffDepartment.isNotEmpty) {
+        final currentDept = reqDoc.data()?['department']?.toString() ?? '';
+        if (currentDept.isEmpty || currentDept == 'Unassigned') {
+          updatePayload['department']   = staffDepartment;
+          updatePayload['departmentId'] = staffDepartmentId;
+        }
+      }
+
+      await FirebaseFirestore.instance
+          .collection('requests')
+          .doc(requestId)
+          .update(updatePayload);
 
       // ── Send notification to citizen ───────────────────────
       if (userId.isNotEmpty) {
