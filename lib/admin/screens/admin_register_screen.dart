@@ -199,7 +199,7 @@ class _AdminRegisterScreenState
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: Image.asset('assets/serbisyo.png',
+                      child: Image.asset('assets/logo.jpg',
                           fit: BoxFit.cover),
                     ),
                   ),

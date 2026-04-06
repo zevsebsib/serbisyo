@@ -55,7 +55,7 @@ class _SupportScreenState extends State<SupportScreen> {
 
     // Replace with your actual support email
     final mailUrl =
-        'mailto:support@serbisyoalisto.com?subject=$subject&body=$body';
+        'mailto:abcdspade@gmail.com?subject=$subject&body=$body';
 
     await _launchUrl(mailUrl);
     setState(() => _sending = false);

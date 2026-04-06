@@ -199,7 +199,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
                                 color: Colors.white,
                                 shape: BoxShape.circle),
                             child: ClipOval(
-                              child: Image.asset('assets/serbisyo.png',
+                              child: Image.asset('assets/logo.jpg',
                                   fit: BoxFit.cover),
                             ),
                           ),

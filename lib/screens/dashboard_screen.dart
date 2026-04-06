@@ -96,11 +96,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       for (final doc in docs) {
         final status =
             (doc['status'] ?? '').toString().toLowerCase();
-        if (status == 'pending') {
+
+        // ── REVISED: Corrected status mapping to match
+        //             actual Firestore values from admin side ──
+        if (status == 'submitted' || status == 'pending_review') {
+          // Not yet assigned or under initial review → Pending
           pending++;
-        } else if (status == 'processing') {
+        } else if (status == 'processing' ||
+            status == 'approved' ||
+            status == 'ready_for_pickup') {
+          // Actively being worked on → Processing
           processing++;
         } else if (status == 'completed') {
+          // Fully done → Done
           done++;
         }
       }
@@ -626,17 +634,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _buildEmptyState()
         else
           ..._recentRequests.map((item) {
-            // ── pass rawId for navigation ──────────────────────
             final rawId  = item['id']?.toString() ?? '';
             final shortId =
                 '#${rawId.length > 7 ? rawId.substring(0, 7).toUpperCase() : rawId.toUpperCase()}';
+
+            // ── REVISED: Map raw status to display label ──
+            final rawStatus =
+                (item['status']?.toString() ?? '').toLowerCase();
+            String displayStatus;
+            switch (rawStatus) {
+              case 'submitted':
+              case 'pending_review':
+                displayStatus = 'PENDING';
+                break;
+              case 'processing':
+              case 'approved':
+              case 'ready_for_pickup':
+                displayStatus = 'PROCESSING';
+                break;
+              case 'completed':
+                displayStatus = 'COMPLETED';
+                break;
+              case 'rejected':
+                displayStatus = 'REJECTED';
+                break;
+              default:
+                displayStatus = rawStatus.toUpperCase();
+            }
+
             return _buildRequestCard({
               'rawId':    rawId,
               'id':       shortId,
               'title':    item['serviceName']?.toString() ?? 'Request',
               'priority': item['priority']?.toString() ?? 'MEDIUM',
-              'status':   (item['status']?.toString() ?? 'pending')
-                  .toUpperCase(),
+              'status':   displayStatus,
             });
           }),
       ],
@@ -666,7 +697,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ── Request Card — tappable, navigates to tracking screen ─────────────────
+  // ── Request Card ───────────────────────────────────────────────────────────
   Widget _buildRequestCard(Map<String, String> item) {
     final status   = item['status']!;
     final priority = item['priority']!;
@@ -679,9 +710,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         statusBg = AppColors.warningLight;
         statusFg = AppColors.warning;
         break;
+      case 'PROCESSING':
+        statusBg = AppColors.cardBg;
+        statusFg = AppColors.primary;
+        break;
       case 'COMPLETED':
         statusBg = AppColors.successLight;
         statusFg = AppColors.success;
+        break;
+      case 'REJECTED':
+        statusBg = const Color(0xFFFFEBEB);
+        statusFg = const Color(0xFFEF4444);
         break;
       default:
         statusBg = AppColors.cardBg;
@@ -762,7 +801,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-            // ── Status chip + chevron arrow ────────────────────────
             Row(
               children: [
                 Container(

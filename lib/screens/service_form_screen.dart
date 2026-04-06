@@ -10,6 +10,230 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bottom_nav.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  REQUIREMENTS MAP
+//  Source: Laoag City Citizens' Charter (2020, 1st Edition)
+//
+//  Keys must match the serviceName values passed from the service catalogue.
+//  Organised by office for easy maintenance.
+// ─────────────────────────────────────────────────────────────────────────────
+const Map<String, List<String>> _serviceRequirements = {
+
+  // ── OFFICE OF THE CITY MAYOR – ADMINISTRATIVE DIVISION ───────────────────
+
+  /// Page 13-14 · Provision of Consumer Assistance
+  'Recommendation Letter for Employment': [
+    'Bio-Data or Curriculum Vitae',
+    'Transcript of Records',
+    'Barangay Clearance',
+    'Copy of Civil Service Eligibility (if applicable)',
+  ],
+  'Recommendation Letter for Transfer': [
+    'Letter-Request (stating reasons for the transfer)',
+    'Certified Service Record',
+    'Form 212 (Personal Data Sheet)',
+  ],
+  'Referral to Health Services': [
+    'Certificate of Indigency',
+    'Clinical Diagnosis or Doctor\'s Referral',
+    'Health Card',
+  ],
+  'Permit for Hanging of Streamers': [
+    'Letter Request (purpose, date, place, and size of streamers)',
+  ],
+  'Permit for Fund Raising Activity': [
+    'Letter Request (purpose, date, and venue of activity)',
+    'Financial Statement of Past Fund-Raising Activity',
+  ],
+  'Permit for Temporary Closure of Streets': [
+    'Letter Request (purpose, street, and duration of closure)',
+  ],
+
+  /// Page 15-16 · Issuance of Certificate of Good Moral Character
+  'Certificate of Good Moral Character (Scholarship)': [
+    'Birth Certificate',
+    'Certificate of Residency from Barangay Chairman',
+  ],
+  'Certificate of Good Moral Character (Local Employment)': [
+    'Barangay Clearance',
+    'Police Clearance',
+    'Prosecutor\'s Clearance',
+    'Court Clearance',
+    'NBI Clearance',
+  ],
+  'Certificate of Good Moral Character (Overseas Employment)': [
+    'Barangay Clearance',
+    'Police Clearance',
+    'Prosecutor\'s Clearance',
+    'Court Clearance',
+    'NBI Clearance',
+  ],
+
+  /// Page 17-18 · Granting of Permit for the Use of Government Facilities
+  'Permit for Use of Government Facilities': [
+    'Letter Request addressed to the City Mayor '
+        '(specify facility/equipment, purpose, time, and date)',
+  ],
+
+  /// Page 18-20 · Receipt of Complaints
+  'Receipt of Complaints': [
+    'Letter of Complaint',
+  ],
+
+  // ── OFFICE OF THE CITY CIVIL REGISTRAR ───────────────────────────────────
+
+  /// Page 247 · Registration of Live Birth, Death and Marriage
+  'Registration of Live Birth': [
+    'Certificate of Live Birth (accomplished Municipal Form No. 102)',
+    'Marriage Certificate of Parents (PSA copy)',
+    'Valid ID of the Informant/Registrant',
+  ],
+  'Registration of Death': [
+    'Certificate of Death (accomplished Municipal Form No. 103)',
+    'Medical Certificate of Death (signed by attending physician)',
+    'Valid ID of the Informant',
+  ],
+  'Registration of Marriage': [
+    'Marriage Certificate (accomplished Municipal Form No. 97)',
+    'Marriage License',
+    'Valid IDs of Both Parties',
+  ],
+
+  /// Page 248 · Late Registration of Birth, Death or Marriage
+  'Late Registration of Birth': [
+    'Accomplished Certificate of Live Birth',
+    'Affidavit of Late Registration',
+    'Earliest School Records (Form 137 or Report Card)',
+    'Baptismal Certificate (if available)',
+    'Marriage Certificate of Parents (PSA copy)',
+    'Valid ID of the Informant',
+  ],
+  'Late Registration of Death': [
+    'Accomplished Certificate of Death',
+    'Affidavit of Late Registration',
+    'Medical Certificate (if available)',
+    'Valid ID of the Informant',
+  ],
+  'Late Registration of Marriage': [
+    'Accomplished Certificate of Marriage',
+    'Affidavit of Late Registration',
+    'Valid IDs of Both Parties',
+  ],
+
+  /// Page 251 · Application for Marriage License
+  'Application for Marriage License': [
+    'Birth Certificates of Both Parties (PSA copy)',
+    'Certificate of No Marriage (CENOMAR) from PSA',
+    'Community Tax Certificates of Both Parties',
+    'Parental Consent/Advice (if applicant is 18–24 years old)',
+    'Pre-Marriage Orientation and Counseling (PMOC) Certificate',
+    'Certificate of Legal Capacity (for foreign nationals)',
+    '1 pc. 2x2 ID Picture of Each Party',
+  ],
+
+  /// Page 253 · Out-of-Town Registration/Reporting
+  'Out-of-Town Registration': [
+    'Original Civil Registry Document to be reported',
+    'Supporting Documents related to the document being reported',
+    'Valid ID of the Registrant/Representative',
+  ],
+
+  /// Page 255 · Registration of Legal Instruments
+  'Registration of Legal Instruments': [
+    'Duly Accomplished Legal Instrument',
+    'Court Order or Decision (if applicable)',
+    'Valid ID of the Applicant',
+  ],
+
+  /// Page 258 · Petition for Change of First Name / Correction of Clerical Error
+  'Petition for Change of First Name': [
+    'Accomplished Petition Form',
+    'Birth Certificate to be corrected (PSA copy)',
+    'At least 2 Public Documents showing the correct entry '
+        '(e.g. School Records, Voter\'s ID, Passport)',
+    'Affidavit of Publication (after posting/publication)',
+    'Valid ID of the Petitioner',
+  ],
+  'Correction of Clerical Error (R.A. 9048)': [
+    'Accomplished Petition Form',
+    'Birth Certificate to be corrected (PSA copy)',
+    'At least 2 Supporting Documents showing correct entry',
+    'Valid ID of the Petitioner',
+  ],
+
+  /// Page 264 · Issuance of Certified Machine Copy
+  'Issuance of Certified Machine Copy': [
+    'Letter Request or Accomplished Request Form',
+    'Valid ID of the Requesting Party',
+  ],
+
+  /// Page 265 · Reconstruction/Transcription of Document
+  'Reconstruction of Civil Registry Document': [
+    'Affidavit of Loss or Destruction',
+    'Available Secondary Documents '
+        '(Baptismal Certificate, School Records, etc.)',
+    'Valid ID of the Applicant',
+  ],
+
+  // ── OFFICE OF THE CITY COMMUNITY AFFAIRS OFFICER ─────────────────────────
+
+  /// Page 55-56 · Provision of Local Employment Referrals (for Applicants)
+  'Local Employment Referral': [
+    'Curriculum Vitae / Resume with 2x2 ID Picture',
+    'Transcript of Records or Graduation Certificate',
+    'Form 138 (for High School Graduates)',
+    'Barangay Clearance',
+  ],
+
+  /// Page 57-58 · Issuance of Certificate of No Objection
+  'Certificate of No Objection to Overseas Recruitment': [
+    'Letter Request addressed to the City Mayor',
+    'POEA License (copy)',
+    'Job Orders',
+    'Affidavit of Undertaking',
+    'Authorization Letter of the General Manager of the Agency',
+  ],
+
+  /// Page 59-60 · SPES
+  'Special Program for Employment of Students (SPES)': [
+    'Photocopy of Birth Certificate (or any document showing age; must be 15–30 y/o)',
+    'Photocopy of latest Income Tax Return of Parents/Guardian '
+        'OR Certificate of Indigence from Barangay/DSWD',
+    'Proof of Passing Grade (Class Card or Form 138 of previous semester)',
+    'Certification as Out-of-School Youth from DSWD/CSWD '
+        '(for OSY applicants)',
+  ],
+
+  /// Page 61-62 · Processing of Claims for Livelihood Assistance
+  'Livelihood Assistance (Animal Dispersal)': [
+    'Letter Request or Barangay Resolution',
+    'City Mayor\'s Approval of the Request',
+  ],
+
+  /// Page 62-64 · Processing of Claims for Prizes
+  'Search for Cleanest Barangay – Prize Claims': [
+    'Project Proposal in the form of Barangay Resolution or Program of Work',
+    'Approval of the City Mayor',
+  ],
+
+  /// Page 64-65 · "Sama-Summer Together" Program
+  'Sama-Summer Together Program': [
+    'Certificate of Residency from Barangay Chairman',
+    'Photocopy of Birth Certificate',
+    'Consent of Parent or Guardian',
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  FALLBACK requirements used when serviceName is not in the map above.
+// ─────────────────────────────────────────────────────────────────────────────
+const List<String> _defaultRequirements = [
+  'Barangay Clearance',
+  'Valid ID',
+  'Proof of Residency',
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 class ServiceFormScreen extends StatefulWidget {
   final String? serviceName;
   final String? category;
@@ -30,15 +254,11 @@ class ServiceFormScreen extends StatefulWidget {
 
 class _ServiceFormScreenState extends State<ServiceFormScreen> {
   // ── Cloudinary config ────────────────────────────────────────────
-  static const String _cloudName    = 'dmsgbxyzh';   // ← paste yours
-  static const String _uploadPreset = 'serbisyo_alisto';   // ← your preset
+  static const String _cloudName    = 'dmsgbxyzh';
+  static const String _uploadPreset = 'serbisyo_alisto';
 
-  // ── Requirements ─────────────────────────────────────────────────
-  final List<String> _requirements = [
-    'Barangay Clearance',
-    'Valid ID',
-    'Proof of Residency',
-  ];
+  // ── Requirements (resolved from Citizens' Charter map) ───────────
+  late final List<String> _requirements;
 
   final Map<int, File> _uploadedFiles = {};
   final Map<int, bool> _isUploading   = {};
@@ -48,6 +268,14 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
   bool   get _allUploaded => _uploadCount == _requirements.length;
   double get _progress    =>
       _requirements.isEmpty ? 0 : _uploadCount / _requirements.length;
+
+  // ── Resolve requirements from the Citizens' Charter map ──────────
+  @override
+  void initState() {
+    super.initState();
+    _requirements = _serviceRequirements[widget.serviceName] ??
+        _defaultRequirements;
+  }
 
   // ── Generate tracking ID ─────────────────────────────────────────
   String _generateTrackingId() {
@@ -227,8 +455,6 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
       } catch (_) {}
 
       // ── Save to Firestore ──────────────────────────────────────
-      // NOTE: FieldValue.serverTimestamp() is NOT allowed inside arrays.
-      // Use Timestamp.now() for fields inside statusHistory array.
       await requestRef.set({
         // Identification
         'trackingId':   trackingId,
@@ -263,17 +489,17 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
 
         // Status history
         // ✅ Using Timestamp.now() — NOT FieldValue.serverTimestamp()
-        // because FieldValue.serverTimestamp() is NOT supported inside arrays
+        // because FieldValue.serverTimestamp() is NOT supported inside arrays.
         'statusHistory': [
           {
             'status':    'pending',
             'note':      'Request submitted by citizen.',
             'updatedBy': user.uid,
-            'updatedAt': Timestamp.now(),   // ← FIX: was FieldValue.serverTimestamp()
+            'updatedAt': Timestamp.now(),
           }
         ],
 
-        // Timestamps — FieldValue.serverTimestamp() is fine at root level
+        // Timestamps
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });

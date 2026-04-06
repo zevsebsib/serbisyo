@@ -62,10 +62,14 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
           .where('role', isEqualTo: 'admin')
           .where('isActive', isEqualTo: true)
           .get();
+
+      // ── REVISED: Include department & departmentId in staffList ──
       _staffList = staffSnap.docs.map((d) => {
-        'uid':      d.id,
-        'fullName': d.data()['fullName'] ?? 'Staff',
-        'email':    d.data()['email'] ?? '',
+        'uid':          d.id,
+        'fullName':     d.data()['fullName'] ?? 'Staff',
+        'email':        d.data()['email'] ?? '',
+        'department':   d.data()['department'] ?? '',
+        'departmentId': d.data()['departmentId'] ?? '',
       }).toList();
 
       final deptSnap = await FirebaseFirestore.instance
@@ -109,21 +113,33 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         } catch (_) {}
       }
 
+      // ── REVISED: Build both staffNames and staffDepartments maps ──
       final Map<String, String> staffNames = {};
+      final Map<String, String> staffDepartments = {};
       for (final s in _staffList) {
-        staffNames[s['uid'] as String] = s['fullName'] as String;
+        staffNames[s['uid'] as String]       = s['fullName'] as String;
+        staffDepartments[s['uid'] as String] = s['department'] as String;
       }
 
       _allRequests = reqSnap.docs.map((d) {
         final data       = d.data() as Map<String, dynamic>;
         final userId     = data['userId']?.toString() ?? '';
         final assignedTo = data['assignedTo']?.toString() ?? '';
+
+        // ── REVISED: Use staff's department as fallback if request
+        //             has no department or is still "Unassigned" ──
+        final rawDept = data['department']?.toString() ?? '';
+        final resolvedDepartment =
+            (rawDept.isNotEmpty && rawDept != 'Unassigned')
+                ? rawDept
+                : (staffDepartments[assignedTo] ?? '');
+
         return {
           'id':                 d.id,
           'trackingId':         data['trackingId'] ?? '',
           'serviceName':        data['serviceName'] ?? 'Service Request',
           'category':           data['category'] ?? '',
-          'department':         data['department'] ?? '',
+          'department':         resolvedDepartment,
           'status':             data['status'] ?? 'submitted',
           'userId':             userId,
           'citizenName':        userNames[userId] ??
@@ -805,6 +821,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                       fontSize: 12,
                       color: const Color(0xFF444444))),
             ),
+            // ── REVISED: Shows resolved department (from staff if empty) ──
             Expanded(
               flex: 2,
               child: Text(
@@ -1847,7 +1864,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // ── ✅ REVISED: _assignStaff with citizen notification ────────────────────
+  // ── _assignStaff with citizen notification ─────────────────────────────────
   Future<void> _assignStaff(
       String requestId, String staffUid) async {
     try {
@@ -2161,7 +2178,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // ── ✅ REVISED: _updateStatus with citizen notification ───────────────────
+  // ── _updateStatus with citizen notification ────────────────────────────────
   Future<void> _updateStatus(
       String requestId,
       String status,
