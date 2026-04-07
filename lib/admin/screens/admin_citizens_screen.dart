@@ -687,299 +687,288 @@ class _AdminCitizensScreenState extends State<AdminCitizensScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        insetPadding: const EdgeInsets.symmetric(
-            horizontal: 40, vertical: 24),
-        child: Container(
-          width: 680,
-          constraints: BoxConstraints(
-            maxHeight:
-                MediaQuery.of(context).size.height * 0.85,
-          ),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFFFF9200),
-                      Color(0xFFFF5E00),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft:  Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 52, height: 52,
-                      decoration: BoxDecoration(
-                        color: Colors.white
-                            .withValues(alpha: 0.20),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(initials,
-                            style: GoogleFonts.inter(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            )),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(c['fullName'] as String,
-                              style: GoogleFonts.inter(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              )),
-                          Text(c['email'] as String,
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: Colors.white
-                                    .withValues(alpha: 0.80),
-                              )),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white
-                            .withValues(alpha: 0.20),
-                        borderRadius:
-                            BorderRadius.circular(20),
-                        border: Border.all(
-                            color: Colors.white
-                                .withValues(alpha: 0.30)),
-                      ),
-                      child: Text(
-                        isActive ? 'Active' : 'Inactive',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close,
-                          color: Colors.white, size: 20),
-                    ),
-                  ],
-                ),
-              ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) {
+          final screenWidth = MediaQuery.of(ctx).size.width;
+          final isNarrow = screenWidth < 860;
+          final dialogMaxWidth = isNarrow ? screenWidth - 32 : 680.0;
 
-              // Body
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _infoCard(
-                              'Profile Information',
-                              [
-                                _detailRow('Full Name',
-                                    c['fullName'] as String),
-                                _detailRow('Email',
-                                    c['email'] as String),
-                                _detailRow(
-                                  'Phone',
-                                  (c['phone'] as String?)
-                                              ?.isNotEmpty ==
-                                          true
-                                      ? c['phone'] as String
-                                      : '—',
-                                ),
-                                _detailRow('Date Joined',
-                                    _fmtTs(c['createdAt']
-                                        as Timestamp?)),
-                                _detailRow('Status',
-                                    isActive
-                                        ? 'Active'
-                                        : 'Inactive'),
-                              ],
-                            ),
+          return Dialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            insetPadding: EdgeInsets.symmetric(
+                horizontal: isNarrow ? 16 : 40, vertical: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: dialogMaxWidth,
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFFF9200), Color(0xFFFF5E00)],
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.20),
+                            shape: BoxShape.circle,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _infoCard(
-                              'Request Summary',
-                              [],
-                              child: Column(
-                                children: [
-                                  _summaryItem('Total',
-                                      requests.length,
-                                      const Color(0xFF5C6BC0)),
-                                  _summaryItem('Pending',
-                                      requests.where((r) => r['status'] == 'pending').length,
-                                      const Color(0xFFF59E0B)),
-                                  _summaryItem('In Progress',
-                                      requests.where((r) => r['status'] == 'in_progress').length,
-                                      const Color(0xFF3B82F6)),
-                                  _summaryItem('Completed',
-                                      requests.where((r) => r['status'] == 'completed').length,
-                                      const Color(0xFF10B981)),
-                                  _summaryItem('Rejected',
-                                      requests.where((r) => r['status'] == 'rejected').length,
-                                      const Color(0xFFEF4444)),
-                                ],
+                          child: Center(
+                            child: Text(
+                              initials,
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      _infoCard(
-                        'Request History',
-                        [],
-                        child: requests.isEmpty
-                            ? Padding(
-                                padding: const EdgeInsets
-                                    .symmetric(vertical: 16),
-                                child: Center(
-                                  child: Text(
-                                    'No requests submitted yet',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      color: AppColors.muted,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                c['fullName'] as String,
+                                style: GoogleFonts.inter(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                c['email'] as String,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: Colors.white.withValues(alpha: 0.80),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.20),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.30)),
+                          ),
+                          child: Text(
+                            isActive ? 'Active' : 'Inactive',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(Icons.close,
+                              color: Colors.white, size: 20),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (isNarrow)
+                            Column(
+                              children: [
+                                _infoCard(
+                                  'Profile Information',
+                                  [
+                                    _detailRow('Full Name', c['fullName'] as String),
+                                    _detailRow('Email', c['email'] as String),
+                                    _detailRow(
+                                      'Phone',
+                                      (c['phone'] as String?)?.isNotEmpty == true
+                                          ? c['phone'] as String
+                                          : '—',
+                                    ),
+                                    _detailRow('Date Joined', _fmtTs(c['createdAt'] as Timestamp?)),
+                                    _detailRow('Status', isActive ? 'Active' : 'Inactive'),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                _infoCard(
+                                  'Request Summary',
+                                  [],
+                                  child: Column(
+                                    children: [
+                                      _summaryItem('Total', requests.length, const Color(0xFF5C6BC0)),
+                                      _summaryItem('Pending', requests.where((r) => r['status'] == 'pending').length, const Color(0xFFF59E0B)),
+                                      _summaryItem('In Progress', requests.where((r) => r['status'] == 'in_progress').length, const Color(0xFF3B82F6)),
+                                      _summaryItem('Completed', requests.where((r) => r['status'] == 'completed').length, const Color(0xFF10B981)),
+                                      _summaryItem('Rejected', requests.where((r) => r['status'] == 'rejected').length, const Color(0xFFEF4444)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _infoCard(
+                                    'Profile Information',
+                                    [
+                                      _detailRow('Full Name', c['fullName'] as String),
+                                      _detailRow('Email', c['email'] as String),
+                                      _detailRow(
+                                        'Phone',
+                                        (c['phone'] as String?)?.isNotEmpty == true
+                                            ? c['phone'] as String
+                                            : '—',
+                                      ),
+                                      _detailRow('Date Joined', _fmtTs(c['createdAt'] as Timestamp?)),
+                                      _detailRow('Status', isActive ? 'Active' : 'Inactive'),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _infoCard(
+                                    'Request Summary',
+                                    [],
+                                    child: Column(
+                                      children: [
+                                        _summaryItem('Total', requests.length, const Color(0xFF5C6BC0)),
+                                        _summaryItem('Pending', requests.where((r) => r['status'] == 'pending').length, const Color(0xFFF59E0B)),
+                                        _summaryItem('In Progress', requests.where((r) => r['status'] == 'in_progress').length, const Color(0xFF3B82F6)),
+                                        _summaryItem('Completed', requests.where((r) => r['status'] == 'completed').length, const Color(0xFF10B981)),
+                                        _summaryItem('Rejected', requests.where((r) => r['status'] == 'rejected').length, const Color(0xFFEF4444)),
+                                      ],
                                     ),
                                   ),
                                 ),
-                              )
-                            : Column(
-                                children: requests
-                                    .take(8)
-                                    .map(_requestHistoryItem)
-                                    .toList(),
-                              ),
+                              ],
+                            ),
+                          const SizedBox(height: 20),
+                          _infoCard(
+                            'Request History',
+                            [],
+                            child: requests.isEmpty
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: Text(
+                                        'No requests submitted yet',
+                                        style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted),
+                                      ),
+                                    ),
+                                  )
+                                : Column(
+                                    children: requests.take(8).map(_requestHistoryItem).toList(),
+                                  ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Footer
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF7F8FC),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft:  Radius.circular(20),
-                    bottomRight: Radius.circular(20),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                            color: Color(0xFFEEEEEE)),
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
-                      ),
-                      child: Text('Close',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.muted,
-                          )),
                     ),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _toggleActive(
-                            c['uid'] as String, isActive);
-                      },
-                      icon: Icon(
-                        isActive
-                            ? Icons.block_rounded
-                            : Icons.check_circle_rounded,
-                        size: 15,
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF7F8FC),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(20),
+                        bottomRight: Radius.circular(20),
                       ),
-                      label: Text(
-                        isActive ? 'Deactivate' : 'Activate',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFEEEEEE)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          ),
+                          child: Text('Close',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.muted,
+                              )),
                         ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isActive
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFF10B981),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
-                      ),
+                        const SizedBox(width: 10),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _toggleActive(c['uid'] as String, isActive);
+                          },
+                          icon: Icon(
+                            isActive ? Icons.block_rounded : Icons.check_circle_rounded,
+                            size: 15,
+                          ),
+                          label: Text(
+                            isActive ? 'Deactivate' : 'Activate',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                isActive ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _confirmDelete(c['uid'] as String, c['fullName'] as String);
+                          },
+                          icon: const Icon(Icons.delete_rounded, size: 15),
+                          label: Text('Delete',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              )),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFEF4444),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _confirmDelete(
-                          c['uid'] as String,
-                          c['fullName'] as String,
-                        );
-                      },
-                      icon: const Icon(Icons.delete_rounded,
-                          size: 15),
-                      label: Text('Delete',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          )),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            const Color(0xFFEF4444),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

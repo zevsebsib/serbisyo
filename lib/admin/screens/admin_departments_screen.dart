@@ -683,12 +683,20 @@ class _AdminDepartmentsScreenState
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setInner) => Dialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
-          child: Container(
-            width: 500,
-            padding: const EdgeInsets.all(28),
+        builder: (ctx, setInner) {
+          final screenWidth = MediaQuery.of(ctx).size.width;
+          final isNarrow = screenWidth < 720;
+          final dialogMaxWidth = isNarrow ? screenWidth - 32 : 500.0;
+
+          return Dialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            insetPadding: EdgeInsets.symmetric(
+                horizontal: isNarrow ? 16 : 40, vertical: 24),
+            child: Container(
+              width: double.infinity,
+              constraints: BoxConstraints(maxWidth: dialogMaxWidth),
+              padding: EdgeInsets.all(isNarrow ? 20 : 28),
             child: Form(
               key: formKey,
               child: Column(
@@ -828,8 +836,10 @@ class _AdminDepartmentsScreenState
                   const SizedBox(height: 28),
 
                   // Action buttons
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: [
                       OutlinedButton(
                         onPressed: () => Navigator.pop(ctx),
@@ -849,7 +859,6 @@ class _AdminDepartmentsScreenState
                               color: AppColors.muted,
                             )),
                       ),
-                      const SizedBox(width: 10),
                       ElevatedButton.icon(
                         onPressed: () async {
                           // ✅ FIX 1: curly braces added
@@ -900,8 +909,9 @@ class _AdminDepartmentsScreenState
                 ],
               ),
             ),
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -949,12 +959,19 @@ class _AdminDepartmentsScreenState
 
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          width: 480,
-          constraints: const BoxConstraints(maxHeight: 500),
+      builder: (ctx) {
+        final screenWidth = MediaQuery.of(ctx).size.width;
+        final dialogMaxWidth = screenWidth < 720 ? screenWidth - 32 : 480.0;
+
+        return Dialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
+          insetPadding: EdgeInsets.symmetric(
+              horizontal: screenWidth < 720 ? 16 : 40,
+              vertical: 24),
+          child: Container(
+            width: double.infinity,
+            constraints: BoxConstraints(maxWidth: dialogMaxWidth, maxHeight: 500),
           child: Column(
             children: [
               // Header
@@ -1160,8 +1177,9 @@ class _AdminDepartmentsScreenState
               ),
             ],
           ),
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

@@ -158,476 +158,533 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
-      body: Row(
-        children: [
-          // ── Mini Sidebar ─────────────────────────────────────────
-          MouseRegion(
-            onEnter: (_) => setState(() => _isExpanded = true),
-            onExit:  (_) => setState(() => _isExpanded = false),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              width: _isExpanded ? _expandedWidth : _collapsedWidth,
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: AppColors.headerGradient,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x33000000),
-                      blurRadius: 12,
-                      offset: Offset(2, 0),
-                    ),
-                  ],
+    final page = _selectedIndex < _pages.length
+        ? _pages[_selectedIndex]
+        : const Center(child: Text('Page not found'));
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 980;
+        if (isMobile) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFF5F6FA),
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF1A1A1A),
+              elevation: 0,
+              title: Text(
+                _navItems[_selectedIndex].label,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1A1A1A),
                 ),
+              ),
+            ),
+            drawer: Drawer(
+              child: SafeArea(
                 child: Column(
                   children: [
-                    // ── Logo area ────────────────────────────────
-                    Container(
-                      height: 72,
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.15),
+                    ListTile(
+                      title: Text(
+                        _fullName,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1A1A1A),
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40, height: 40,
-                            decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle),
-                            child: ClipOval(
-                              child: Image.asset('assets/logo.jpg',
-                                  fit: BoxFit.cover),
-                            ),
-                          ),
-                          if (_isExpanded) ...[
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.center,
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text('SerbisyoAlisto',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w800,
-                                        color: Colors.white,
-                                      )),
-                                  Text('Admin Portal',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 10,
-                                        color: Colors.white
-                                            .withValues(alpha: 0.70),
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: 1.0,
-                                      )),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                      subtitle: Text(
+                        _role == 'superadmin' ? 'Super Admin' : 'Admin / Staff',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.muted,
+                        ),
                       ),
                     ),
-
-                    // ── Role badge ───────────────────────────────
-                    if (_isExpanded)
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.20),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 8, height: 8,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF4CAF50),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _fullName,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  Text(
-                                    _role == 'superadmin'
-                                        ? 'Super Admin'
-                                        : 'Admin / Staff',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 10,
-                                      color: Colors.white
-                                          .withValues(alpha: 0.70),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    const SizedBox(height: 12),
-
-                    // ── Nav items ────────────────────────────────
+                    const Divider(height: 1),
                     Expanded(
                       child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
                         itemCount: _navItems.length,
                         itemBuilder: (context, index) {
-                          final item     = _navItems[index];
+                          final item = _navItems[index];
                           final selected = _selectedIndex == index;
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Tooltip(
-                              message: _isExpanded ? '' : item.label,
-                              preferBelow: false,
-                              child: InkWell(
-                                onTap: () => setState(
-                                    () => _selectedIndex = index),
-                                borderRadius: BorderRadius.circular(10),
-                                child: AnimatedContainer(
-                                  duration: const Duration(
-                                      milliseconds: 150),
-                                  height: 46,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    color: selected
-                                        ? Colors.white
-                                            .withValues(alpha: 0.20)
-                                        : Colors.transparent,
-                                    borderRadius:
-                                        BorderRadius.circular(10),
-                                    border: selected
-                                        ? Border.all(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.30),
-                                            width: 1,
-                                          )
-                                        : null,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        item.icon,
-                                        size: 22,
-                                        color: selected
-                                            ? Colors.white
-                                            : Colors.white.withValues(
-                                                alpha: 0.60),
-                                      ),
-                                      if (_isExpanded) ...[
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            item.label,
-                                            overflow:
-                                                TextOverflow.ellipsis,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 13,
-                                              fontWeight: selected
-                                                  ? FontWeight.w700
-                                                  : FontWeight.w500,
-                                              color: selected
-                                                  ? Colors.white
-                                                  : Colors.white
-                                                      .withValues(
-                                                          alpha: 0.70),
-                                            ),
-                                          ),
-                                        ),
-                                        if (selected)
-                                          Container(
-                                            width: 6, height: 6,
-                                            decoration:
-                                                const BoxDecoration(
-                                              color: Colors.white,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
+                          return ListTile(
+                            leading: Icon(item.icon),
+                            title: Text(item.label, style: GoogleFonts.inter()),
+                            selected: selected,
+                            onTap: () {
+                              setState(() => _selectedIndex = index);
+                              Navigator.pop(context);
+                            },
                           );
                         },
                       ),
                     ),
-
-                    // ── Logout button ────────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Tooltip(
-                        message: _isExpanded ? '' : 'Sign Out',
-                        preferBelow: false,
-                        child: InkWell(
-                          onTap: _handleLogout,
-                          borderRadius: BorderRadius.circular(10),
-                          child: AnimatedContainer(
-                            duration:
-                                const Duration(milliseconds: 150),
-                            height: 46,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12),
-                            decoration: BoxDecoration(
-                              color:
-                                  Colors.white.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.logout_rounded,
-                                    size: 22,
-                                    color: Colors.white
-                                        .withValues(alpha: 0.70)),
-                                if (_isExpanded) ...[
-                                  const SizedBox(width: 12),
-                                  Text('Sign Out',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.white
-                                            .withValues(alpha: 0.70),
-                                      )),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                    ListTile(
+                      leading: const Icon(Icons.logout_rounded),
+                      title: Text('Sign Out', style: GoogleFonts.inter()),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _handleLogout();
+                      },
                     ),
-
-                    const SizedBox(height: 8),
                   ],
                 ),
               ),
             ),
-          ),
+            body: page,
+          );
+        }
 
-          // ── Main content area ─────────────────────────────────────
-          Expanded(
-            child: Column(
-              children: [
-                // ── Top header ──────────────────────────────────
-                Container(
-                  height: 72,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0x0F000000),
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      // Page title
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _navItems[_selectedIndex].label,
-                            style: GoogleFonts.inter(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF1A1A1A),
+        final isCompact = constraints.maxWidth < 1280;
+        final searchWidth = (constraints.maxWidth * 0.20).clamp(180.0, 260.0);
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF5F6FA),
+          body: Row(
+            children: [
+              // ── Mini Sidebar ─────────────────────────────────────────
+              MouseRegion(
+                onEnter: (_) => setState(() => _isExpanded = true),
+                onExit: (_) => setState(() => _isExpanded = false),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  width: _isExpanded ? _expandedWidth : _collapsedWidth,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: AppColors.headerGradient,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 12,
+                          offset: Offset(2, 0),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        // ── Logo area ────────────────────────────────
+                        Container(
+                          height: 72,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.15),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: ClipOval(
+                                  child: Image.asset('assets/logo.jpg', fit: BoxFit.cover),
+                                ),
+                              ),
+                              if (_isExpanded) ...[
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'SerbisyoAlisto',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Admin Portal',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          color: Colors.white.withValues(alpha: 0.70),
+                                          fontWeight: FontWeight.w500,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+
+                        // ── Role badge ───────────────────────────────
+                        if (_isExpanded)
+                          Container(
+                            margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.20),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF4CAF50),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _fullName,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      Text(
+                                        _role == 'superadmin' ? 'Super Admin' : 'Admin / Staff',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          color: Colors.white.withValues(alpha: 0.70),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            _role == 'superadmin'
-                                ? 'Super Admin View'
-                                : 'Staff View',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: AppColors.muted,
+
+                        const SizedBox(height: 12),
+
+                        // ── Nav items ────────────────────────────────
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            itemCount: _navItems.length,
+                            itemBuilder: (context, index) {
+                              final item = _navItems[index];
+                              final selected = _selectedIndex == index;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Tooltip(
+                                  message: _isExpanded ? '' : item.label,
+                                  preferBelow: false,
+                                  child: InkWell(
+                                    onTap: () => setState(() => _selectedIndex = index),
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 150),
+                                      height: 46,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      decoration: BoxDecoration(
+                                        color: selected
+                                            ? Colors.white.withValues(alpha: 0.20)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: selected
+                                            ? Border.all(
+                                                color: Colors.white.withValues(alpha: 0.30),
+                                                width: 1,
+                                              )
+                                            : null,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            item.icon,
+                                            size: 22,
+                                            color: selected
+                                                ? Colors.white
+                                                : Colors.white.withValues(alpha: 0.60),
+                                          ),
+                                          if (_isExpanded) ...[
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                item.label,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 13,
+                                                  fontWeight: selected
+                                                      ? FontWeight.w700
+                                                      : FontWeight.w500,
+                                                  color: selected
+                                                      ? Colors.white
+                                                      : Colors.white.withValues(alpha: 0.70),
+                                                ),
+                                              ),
+                                            ),
+                                            if (selected)
+                                              Container(
+                                                width: 6,
+                                                height: 6,
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.white,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+
+                        // ── Logout button ────────────────────────────
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Tooltip(
+                            message: _isExpanded ? '' : 'Sign Out',
+                            preferBelow: false,
+                            child: InkWell(
+                              onTap: _handleLogout,
+                              borderRadius: BorderRadius.circular(10),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                height: 46,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.logout_rounded,
+                                      size: 22,
+                                      color: Colors.white.withValues(alpha: 0.70),
+                                    ),
+                                    if (_isExpanded) ...[
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        'Sign Out',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.white.withValues(alpha: 0.70),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
                             ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Main content area ─────────────────────────────────────
+              Expanded(
+                child: Column(
+                  children: [
+                    // ── Top header ──────────────────────────────────
+                    Container(
+                      height: 72,
+                      padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x0F000000),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
                           ),
                         ],
                       ),
-
-                      const Spacer(),
-
-                      // Search bar
-                      Container(
-                        width: 260, height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F6FA),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: const Color(0xFFEEEEEE)),
-                        ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 12),
-                            Icon(Icons.search,
-                                color: AppColors.muted, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                decoration: InputDecoration(
-                                  hintText: 'Search...',
-                                  hintStyle: GoogleFonts.inter(
-                                    color: AppColors.muted,
-                                    fontSize: 13,
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                ),
-                                style:
-                                    GoogleFonts.inter(fontSize: 13),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(width: 16),
-
-                      // Notification bell
-                      Container(
-                        width: 40, height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F6FA),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: const Color(0xFFEEEEEE)),
-                        ),
-                        child: Stack(
-                          children: [
-                            Center(
-                              child: Icon(
-                                  Icons.notifications_outlined,
-                                  color: AppColors.muted,
-                                  size: 20),
-                            ),
-                            Positioned(
-                              top: 8, right: 8,
-                              child: Container(
-                                width: 8, height: 8,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.danger,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(width: 16),
-
-                      // Admin avatar + info
-                      Row(
+                      child: Row(
                         children: [
-                          Container(
-                            width: 40, height: 40,
-                            decoration: const BoxDecoration(
-                              gradient: AppColors.headerGradient,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                _fullName.isNotEmpty
-                                    ? _fullName[0].toUpperCase()
-                                    : 'A',
+                          // Page title
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _navItems[_selectedIndex].label,
                                 style: GoogleFonts.inter(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
+                                  fontSize: isCompact ? 18 : 20,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF1A1A1A),
                                 ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text(_fullName,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF1A1A1A),
-                                  )),
-                              // Role badge
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: _role == 'superadmin'
-                                      ? AppColors.primary
-                                          .withValues(alpha: 0.12)
-                                      : const Color(0xFF2196F3)
-                                          .withValues(alpha: 0.12),
-                                  borderRadius:
-                                      BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  _role == 'superadmin'
-                                      ? 'Super Admin'
-                                      : 'Admin / Staff',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: _role == 'superadmin'
-                                        ? AppColors.primary
-                                        : const Color(0xFF2196F3),
-                                  ),
+                              Text(
+                                _role == 'superadmin' ? 'Super Admin View' : 'Staff View',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: AppColors.muted,
                                 ),
                               ),
                             ],
                           ),
+
+                          const Spacer(),
+
+                          // Search bar
+                          Container(
+                            width: searchWidth,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F6FA),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFEEEEEE)),
+                            ),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 12),
+                                Icon(Icons.search, color: AppColors.muted, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    decoration: InputDecoration(
+                                      hintText: 'Search...',
+                                      hintStyle: GoogleFonts.inter(
+                                        color: AppColors.muted,
+                                        fontSize: 13,
+                                      ),
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                    ),
+                                    style: GoogleFonts.inter(fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          // Notification bell
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F6FA),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFEEEEEE)),
+                            ),
+                            child: Stack(
+                              children: [
+                                Center(
+                                  child: Icon(
+                                    Icons.notifications_outlined,
+                                    color: AppColors.muted,
+                                    size: 20,
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.danger,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          // Admin avatar + info
+                          Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: const BoxDecoration(
+                                  gradient: AppColors.headerGradient,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _fullName.isNotEmpty ? _fullName[0].toUpperCase() : 'A',
+                                    style: GoogleFonts.inter(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (!isCompact) ...[
+                                const SizedBox(width: 10),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _fullName,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF1A1A1A),
+                                      ),
+                                    ),
+                                    // Role badge
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _role == 'superadmin'
+                                            ? AppColors.primary.withValues(alpha: 0.12)
+                                            : const Color(0xFF2196F3).withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        _role == 'superadmin' ? 'Super Admin' : 'Admin / Staff',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: _role == 'superadmin'
+                                              ? AppColors.primary
+                                              : const Color(0xFF2196F3),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
 
-                // ── Page content ─────────────────────────────────
-                Expanded(
-                  child: _selectedIndex < _pages.length
-                      ? _pages[_selectedIndex]
-                      : const Center(child: Text('Page not found')),
+                    // ── Page content ─────────────────────────────────
+                    Expanded(child: page),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -195,32 +195,39 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       body: LayoutBuilder(builder: (ctx, constraints) {
         final w = constraints.maxWidth;
         if (w < 720) return _buildMobileLayout();
-        return Row(children: [
-          SizedBox(
-            width: (w * 0.38).clamp(280.0, 440.0),
-            child: _buildSidebar(),
-          ),
-          Expanded(child: _buildFormPanel()),
-        ]);
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(flex: 4, child: _buildSidebar()),
+            Expanded(flex: 6, child: _buildFormPanel()),
+          ],
+        );
       }),
     );
   }
 
   Widget _buildSidebar() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFF9500),
-            Color(0xFFFF7200),
-            Color(0xFFE85500),
-          ],
-          stops: [0.0, 0.55, 1.0],
-        ),
-      ),
-      child: Stack(children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 360;
+        final sidebarPadding = isCompact ? 20.0 : 36.0;
+        final logoSize = isCompact ? 72.0 : 100.0;
+        final titleSize = isCompact ? 24.0 : 30.0;
+
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFFF9500),
+                Color(0xFFFF7200),
+                Color(0xFFE85500),
+              ],
+              stops: [0.0, 0.55, 1.0],
+            ),
+          ),
+          child: Stack(children: [
         Positioned.fill(
           child: CustomPaint(painter: _DotGridPainter()),
         ),
@@ -232,14 +239,15 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
         ),
         SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 36, vertical: 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            padding: EdgeInsets.symmetric(
+                horizontal: sidebarPadding, vertical: 40),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Row(children: [
                   Container(
-                    width: 100, height: 100,
+                    width: logoSize, height: logoSize,
                     decoration: BoxDecoration(
                       color: Colors.transparent,
                       shape: BoxShape.circle,
@@ -251,23 +259,27 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                     ),
                   ),
                   const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text('SerbisyoAlisto',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          )),
-                      Text('City Government of Laoag',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 11,
-                            color: Colors.white
-                                .withValues(alpha: 0.80),
-                          )),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                      children: [
+                        Text('SerbisyoAlisto',
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.dmSans(
+                              fontSize: titleSize,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            )),
+                        Text('City Government of Laoag',
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.dmSans(
+                              fontSize: 11,
+                              color: Colors.white
+                                  .withValues(alpha: 0.80),
+                            )),
+                      ],
+                    ),
                   ),
                 ]),
 
@@ -296,7 +308,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
 
                 Text('Centralized\nService Management',
                     style: GoogleFonts.dmSans(
-                      fontSize: 28,
+                      fontSize: isCompact ? 24 : 28,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                       height: 1.25,
@@ -367,7 +379,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                       ),
                     )),
 
-                const Spacer(),
+                  const SizedBox(height: 10),
 
                 Container(
                     height: 1,
@@ -377,16 +389,19 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                 Text(
                   '© ${DateTime.now().year} City Government of Laoag.\nAll rights reserved.',
                   style: GoogleFonts.dmSans(
-                    fontSize: 10,
+                    fontSize: 20,
                     color: Colors.white.withValues(alpha: 0.65),
                     height: 1.6,
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ]),
+        );
+      },
     );
   }
 
@@ -747,8 +762,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
   }
 
   Widget _buildRegisterLink() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text("Don't have an account? ",
             style: GoogleFonts.dmSans(

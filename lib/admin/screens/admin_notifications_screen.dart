@@ -45,7 +45,7 @@ class _AdminNotificationsScreenState
     super.dispose();
   }
 
-  // ── Load ───────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Load ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
@@ -132,7 +132,7 @@ class _AdminNotificationsScreenState
   int get _totalPages =>
       (_filteredNotifs.length / _pageSize).ceil();
 
-  // ── Mark read/unread ───────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Mark read/unread ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   Future<void> _toggleRead(Map<String, dynamic> n) async {
     final ref      = n['ref'] as DocumentReference;
     final isRead   = n['isRead'] as bool;
@@ -153,7 +153,7 @@ class _AdminNotificationsScreenState
     _loadData();
   }
 
-  // ── Send manual notification ───────────────────────────────────────────────
+  // ΓöÇΓöÇ Send manual notification ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   void _showSendDialog() {
     String? selectedUid;
     final titleCtrl = TextEditingController();
@@ -167,8 +167,17 @@ class _AdminNotificationsScreenState
         builder: (ctx, setInner) => Dialog(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20)),
-          child: Container(
-            width: 500,
+          insetPadding: EdgeInsets.symmetric(
+              horizontal: MediaQuery.of(ctx).size.width < 720 ? 16 : 40,
+              vertical: 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(ctx).size.width < 720
+                  ? MediaQuery.of(ctx).size.width - 32
+                  : 500,
+            ),
+            child: Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(28),
             child: Form(
               key: formKey,
@@ -248,7 +257,7 @@ class _AdminNotificationsScreenState
                           DropdownMenuItem<String>(
                             value: c['uid'] as String,
                             child: Text(
-                              '${c['fullName']} — ${c['email']}',
+                              '${c['fullName']} ΓÇö ${c['email']}',
                               overflow:
                                   TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
@@ -356,7 +365,7 @@ class _AdminNotificationsScreenState
                                     final nav = Navigator.of(ctx);
                                     nav.pop();
                                     _showSnack(
-                                        'Notification sent ✓',
+                                        'Notification sent Γ£ô',
                                         AppColors.success);
                                     _loadData();
                                   }
@@ -411,13 +420,14 @@ class _AdminNotificationsScreenState
                 ],
               ),
             ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ── BUILD ──────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ BUILD ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -477,7 +487,7 @@ class _AdminNotificationsScreenState
               ]),
               const SizedBox(height: 4),
               Text(
-                '${_allNotifs.length} total · ${_filteredNotifs.length} shown',
+                '${_allNotifs.length} total ┬╖ ${_filteredNotifs.length} shown',
                 style: GoogleFonts.inter(
                     fontSize: 13,
                     color: AppColors.muted),
@@ -738,7 +748,7 @@ class _AdminNotificationsScreenState
     );
   }
 
-  // ── Notification detail popup ──────────────────────────────────────────────
+  // ΓöÇΓöÇ Notification detail popup ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   void _showNotificationDetail(Map<String, dynamic> n) {
     final type     = n['type'] as String;
     final typeConf = _typeConfig(type);
@@ -757,12 +767,21 @@ class _AdminNotificationsScreenState
         builder: (ctx, setDialog) => Dialog(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20)),
-          child: SizedBox(
-            width: 500,
+          insetPadding: EdgeInsets.symmetric(
+              horizontal: MediaQuery.of(ctx).size.width < 720 ? 16 : 40,
+              vertical: 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(ctx).size.width < 720
+                  ? MediaQuery.of(ctx).size.width - 32
+                  : 500,
+            ),
+            child: SizedBox(
+              width: double.infinity,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // ── Header ──────────────────────────────────────
+                // ΓöÇΓöÇ Header ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -837,7 +856,7 @@ class _AdminNotificationsScreenState
                   ),
                 ),
 
-                // ── Body ────────────────────────────────────────
+                // ΓöÇΓöÇ Body ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
@@ -893,7 +912,7 @@ class _AdminNotificationsScreenState
                   ),
                 ),
 
-                // ── Footer ──────────────────────────────────────
+                // ΓöÇΓöÇ Footer ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
                 Padding(
                   padding:
                       const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -954,6 +973,7 @@ class _AdminNotificationsScreenState
                   ),
                 ),
               ],
+            ),
             ),
           ),
         ),
@@ -1190,7 +1210,7 @@ class _AdminNotificationsScreenState
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          'Showing ${_currentPage * _pageSize + 1}–'
+          'Showing ${_currentPage * _pageSize + 1}ΓÇô'
           '${(_currentPage * _pageSize + _paged.length)} '
           'of ${_filteredNotifs.length}',
           style: GoogleFonts.inter(
@@ -1250,7 +1270,7 @@ class _AdminNotificationsScreenState
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   Widget _hCell(String label,
       {int flex = 1,
       TextAlign align = TextAlign.left}) {
@@ -1381,7 +1401,7 @@ class _AdminNotificationsScreenState
   }
 
   String _fmtTs(Timestamp? ts) {
-    if (ts == null) return '—';
+    if (ts == null) return 'ΓÇö';
     final d = ts.toDate();
     const mo = [
       'Jan','Feb','Mar','Apr','May','Jun',
