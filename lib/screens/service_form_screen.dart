@@ -13,220 +13,147 @@ import '../widgets/bottom_nav.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 //  REQUIREMENTS MAP
 //  Source: Laoag City Citizens' Charter (2020, 1st Edition)
-//
-//  Keys must match the serviceName values passed from the service catalogue.
-//  Organised by office for easy maintenance.
 // ─────────────────────────────────────────────────────────────────────────────
 const Map<String, List<String>> _serviceRequirements = {
 
-  // ── OFFICE OF THE CITY MAYOR – ADMINISTRATIVE DIVISION ───────────────────
+  // ── CITY MAYOR – ADMINISTRATIVE DIVISION ────────────────────────────────
 
-  /// Page 13-14 · Provision of Consumer Assistance
-  'Recommendation Letter for Employment': [
-    'Bio-Data or Curriculum Vitae',
-    'Transcript of Records',
+  /// Citizens' Charter p.13-14 · Provision of Consumer Assistance
+  /// Covers: recommendation letters, referrals, fund-raising, street closure, streamers
+  'Provision of Consumer Assistance': [
+    'Bio-Data or Curriculum Vitae (for Recommendation Letter)',
+    'Transcript of Records (for Recommendation Letter)',
+    'Copy of Civil Service Eligibility, if any (for Recommendation Letter)',
     'Barangay Clearance',
-    'Copy of Civil Service Eligibility (if applicable)',
-  ],
-  'Recommendation Letter for Transfer': [
-    'Letter-Request (stating reasons for the transfer)',
-    'Certified Service Record',
-    'Form 212 (Personal Data Sheet)',
-  ],
-  'Referral to Health Services': [
-    'Certificate of Indigency',
-    'Clinical Diagnosis or Doctor\'s Referral',
-    'Health Card',
-  ],
-  'Permit for Hanging of Streamers': [
-    'Letter Request (purpose, date, place, and size of streamers)',
-  ],
-  'Permit for Fund Raising Activity': [
-    'Letter Request (purpose, date, and venue of activity)',
-    'Financial Statement of Past Fund-Raising Activity',
-  ],
-  'Permit for Temporary Closure of Streets': [
-    'Letter Request (purpose, street, and duration of closure)',
+    'Certificate of Indigency (for Referral to Health Services)',
+    'Clinical Diagnosis or Doctor\'s Referral (for Referral to Health Services)',
+    'Letter Request stating purpose, date, place, and size '
+        '(for Streamers / Fund-Raising / Street Closure)',
   ],
 
-  /// Page 15-16 · Issuance of Certificate of Good Moral Character
-  'Certificate of Good Moral Character (Scholarship)': [
-    'Birth Certificate',
-    'Certificate of Residency from Barangay Chairman',
-  ],
-  'Certificate of Good Moral Character (Local Employment)': [
-    'Barangay Clearance',
-    'Police Clearance',
-    'Prosecutor\'s Clearance',
-    'Court Clearance',
-    'NBI Clearance',
-  ],
-  'Certificate of Good Moral Character (Overseas Employment)': [
-    'Barangay Clearance',
-    'Police Clearance',
-    'Prosecutor\'s Clearance',
-    'Court Clearance',
-    'NBI Clearance',
+  /// Citizens' Charter p.15-16 · Issuance of Certificate of Good Moral Character
+  'Issuance of Certificate of Good Moral Character': [
+    'Birth Certificate (PSA copy) — for Scholarship applicants',
+    'Certificate of Residency from the Barangay Chairman — for Scholarship applicants',
+    'Barangay Clearance — for Local/Overseas Employment applicants',
+    'Police Clearance — for Local/Overseas Employment applicants',
+    'Prosecutor\'s Clearance — for Local/Overseas Employment applicants',
+    'Court Clearance — for Local/Overseas Employment applicants',
+    'NBI Clearance — for Local/Overseas Employment applicants',
   ],
 
-  /// Page 17-18 · Granting of Permit for the Use of Government Facilities
-  'Permit for Use of Government Facilities': [
+  /// Citizens' Charter p.16-18 · Granting of Permit for the Use of Government Facilities and Equipment
+  'Permit for Use of Government Facilities and Equipment': [
     'Letter Request addressed to the City Mayor '
-        '(specify facility/equipment, purpose, time, and date)',
+        '(specify: facility/equipment to be used, purpose, time, and date)',
+    'Official Receipt showing payment of fees (from the Office of the City Treasurer)',
   ],
 
-  /// Page 18-20 · Receipt of Complaints
+  /// Citizens' Charter p.18-20 · Receipt of Complaints
   'Receipt of Complaints': [
-    'Letter of Complaint',
+    'Letter of Complaint addressed to the City Mayor',
   ],
 
-  // ── OFFICE OF THE CITY CIVIL REGISTRAR ───────────────────────────────────
+  // ── OFFICE OF THE CITY CIVIL REGISTRAR ──────────────────────────────────
 
-  /// Page 247 · Registration of Live Birth, Death and Marriage
-  'Registration of Live Birth': [
-    'Certificate of Live Birth (accomplished Municipal Form No. 102)',
-    'Marriage Certificate of Parents (PSA copy)',
-    'Valid ID of the Informant/Registrant',
-  ],
-  'Registration of Death': [
-    'Certificate of Death (accomplished Municipal Form No. 103)',
-    'Medical Certificate of Death (signed by attending physician)',
-    'Valid ID of the Informant',
-  ],
-  'Registration of Marriage': [
-    'Marriage Certificate (accomplished Municipal Form No. 97)',
-    'Marriage License',
-    'Valid IDs of Both Parties',
+  /// Citizens' Charter p.247 · Registration of Live Birth, Death and Marriage
+  'Registration of Live Birth, Death, and Marriage': [
+    'Duly Accomplished Certificate (Municipal Form No. 102 for Birth / '
+        'No. 103 for Death / No. 97 for Marriage)',
+    'Marriage Certificate of Parents — PSA copy (for Live Birth)',
+    'Medical Certificate signed by attending physician (for Death)',
+    'Marriage License (for Marriage)',
+    'Valid ID of the Informant / Both Parties',
   ],
 
-  /// Page 248 · Late Registration of Birth, Death or Marriage
-  'Late Registration of Birth': [
-    'Accomplished Certificate of Live Birth',
+  /// Citizens' Charter p.248 · Late Registration
+  'Late Registration of Birth, Death or Marriage': [
+    'Duly Accomplished Certificate of Live Birth / Death / Marriage',
     'Affidavit of Late Registration',
-    'Earliest School Records (Form 137 or Report Card)',
-    'Baptismal Certificate (if available)',
-    'Marriage Certificate of Parents (PSA copy)',
-    'Valid ID of the Informant',
-  ],
-  'Late Registration of Death': [
-    'Accomplished Certificate of Death',
-    'Affidavit of Late Registration',
-    'Medical Certificate (if available)',
-    'Valid ID of the Informant',
-  ],
-  'Late Registration of Marriage': [
-    'Accomplished Certificate of Marriage',
-    'Affidavit of Late Registration',
-    'Valid IDs of Both Parties',
+    'Earliest School Records — Form 137 or Report Card (for Birth)',
+    'Baptismal Certificate, if available (for Birth)',
+    'Marriage Certificate of Parents — PSA copy (for Birth)',
+    'Medical Certificate, if available (for Death)',
+    'Valid ID of the Informant / Both Parties',
   ],
 
-  /// Page 251 · Application for Marriage License
-  'Application for Marriage License': [
+  /// Citizens' Charter p.251 · Application for Marriage License
+  'Application for Marriage-License': [
     'Birth Certificates of Both Parties (PSA copy)',
     'Certificate of No Marriage (CENOMAR) from PSA',
     'Community Tax Certificates of Both Parties',
-    'Parental Consent/Advice (if applicant is 18–24 years old)',
+    'Parental Consent or Advice (if applicant is 18–24 years old)',
     'Pre-Marriage Orientation and Counseling (PMOC) Certificate',
-    'Certificate of Legal Capacity (for foreign nationals)',
+    'Certificate of Legal Capacity (for foreign nationals, if applicable)',
     '1 pc. 2x2 ID Picture of Each Party',
   ],
 
-  /// Page 253 · Out-of-Town Registration/Reporting
-  'Out-of-Town Registration': [
+  /// Citizens' Charter p.253 · Out-of-Town Registration / Reporting
+  'Out-of-Town Registration / Reporting': [
     'Original Civil Registry Document to be reported',
     'Supporting Documents related to the document being reported',
-    'Valid ID of the Registrant/Representative',
+    'Valid ID of the Registrant or Representative',
   ],
 
-  /// Page 255 · Registration of Legal Instruments
+  /// Citizens' Charter p.255 · Registration of Legal Instruments
   'Registration of Legal Instruments': [
     'Duly Accomplished Legal Instrument',
-    'Court Order or Decision (if applicable)',
+    'Court Order or Decision, if applicable',
     'Valid ID of the Applicant',
   ],
 
-  /// Page 258 · Petition for Change of First Name / Correction of Clerical Error
-  'Petition for Change of First Name': [
-    'Accomplished Petition Form',
-    'Birth Certificate to be corrected (PSA copy)',
-    'At least 2 Public Documents showing the correct entry '
-        '(e.g. School Records, Voter\'s ID, Passport)',
-    'Affidavit of Publication (after posting/publication)',
-    'Valid ID of the Petitioner',
-  ],
-  'Correction of Clerical Error (R.A. 9048)': [
-    'Accomplished Petition Form',
-    'Birth Certificate to be corrected (PSA copy)',
-    'At least 2 Supporting Documents showing correct entry',
-    'Valid ID of the Petitioner',
-  ],
-
-  /// Page 264 · Issuance of Certified Machine Copy
+  /// Citizens' Charter p.264 · Issuance of Certified Machine Copy
   'Issuance of Certified Machine Copy': [
     'Letter Request or Accomplished Request Form',
     'Valid ID of the Requesting Party',
   ],
 
-  /// Page 265 · Reconstruction/Transcription of Document
-  'Reconstruction of Civil Registry Document': [
-    'Affidavit of Loss or Destruction',
-    'Available Secondary Documents '
-        '(Baptismal Certificate, School Records, etc.)',
-    'Valid ID of the Applicant',
-  ],
+  // ── OFFICE OF THE CITY COMMUNITY AFFAIRS OFFICER ────────────────────────
 
-  // ── OFFICE OF THE CITY COMMUNITY AFFAIRS OFFICER ─────────────────────────
-
-  /// Page 55-56 · Provision of Local Employment Referrals (for Applicants)
-  'Local Employment Referral': [
+  /// Citizens' Charter p.55-56 · Local Employment Referral (for Applicants)
+  'Local Employment Referral (Applicants)': [
     'Curriculum Vitae / Resume with 2x2 ID Picture',
     'Transcript of Records or Graduation Certificate',
-    'Form 138 (for High School Graduates)',
+    'Form 138 — for High School Graduates',
     'Barangay Clearance',
   ],
 
-  /// Page 57-58 · Issuance of Certificate of No Objection
-  'Certificate of No Objection to Overseas Recruitment': [
-    'Letter Request addressed to the City Mayor',
-    'POEA License (copy)',
-    'Job Orders',
-    'Affidavit of Undertaking',
-    'Authorization Letter of the General Manager of the Agency',
+  /// Citizens' Charter p.56-57 · Local Employment Referral (for Employers)
+  'Local Employment Referral (Employers)': [
+    'Company / Employer Profile',
+    'List of Job Vacancies and Positions',
+    'Number of Persons to be Hired',
+    'Qualification Requirements of Applicants',
+    'List of Required Documents to be Submitted by Applicants',
   ],
 
-  /// Page 59-60 · SPES
-  'Special Program for Employment of Students (SPES)': [
-    'Photocopy of Birth Certificate (or any document showing age; must be 15–30 y/o)',
-    'Photocopy of latest Income Tax Return of Parents/Guardian '
-        'OR Certificate of Indigence from Barangay/DSWD',
-    'Proof of Passing Grade (Class Card or Form 138 of previous semester)',
-    'Certification as Out-of-School Youth from DSWD/CSWD '
+  /// Citizens' Charter p.58-60 · SPES Program
+  'SPES Program': [
+    'Photocopy of Birth Certificate or any document showing age '
+        '(must be 15–30 years old)',
+    'Photocopy of latest Income Tax Return (ITR) of parents/guardian '
+        'OR Certificate of Indigence from Barangay/DSWD '
+        'OR Certificate of Low Income from the Barangay or CSWD',
+    'Proof of passing grade — Class Card or Form 138 of the previous semester '
+        '(for Students)',
+    'Certification as Out-of-School Youth issued by DSWD/CSWD '
         '(for OSY applicants)',
   ],
 
-  /// Page 61-62 · Processing of Claims for Livelihood Assistance
+  /// Citizens' Charter p.61-62 · Livelihood Assistance (Animal Dispersal)
   'Livelihood Assistance (Animal Dispersal)': [
     'Letter Request or Barangay Resolution',
     'City Mayor\'s Approval of the Request',
   ],
 
-  /// Page 62-64 · Processing of Claims for Prizes
-  'Search for Cleanest Barangay – Prize Claims': [
-    'Project Proposal in the form of Barangay Resolution or Program of Work',
-    'Approval of the City Mayor',
-  ],
-
-  /// Page 64-65 · "Sama-Summer Together" Program
+  /// Citizens' Charter p.64-65 · Sama-Summer Together Program
   'Sama-Summer Together Program': [
-    'Certificate of Residency from Barangay Chairman',
+    'Certificate of Residency from the Barangay Chairman',
     'Photocopy of Birth Certificate',
     'Consent of Parent or Guardian',
   ],
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  FALLBACK requirements used when serviceName is not in the map above.
-// ─────────────────────────────────────────────────────────────────────────────
 const List<String> _defaultRequirements = [
   'Barangay Clearance',
   'Valid ID',
@@ -249,15 +176,14 @@ class ServiceFormScreen extends StatefulWidget {
   });
 
   @override
-  State<ServiceFormScreen> createState() => _ServiceFormScreenState();
+  State<ServiceFormScreen> createState() =>
+      _ServiceFormScreenState();
 }
 
 class _ServiceFormScreenState extends State<ServiceFormScreen> {
-  // ── Cloudinary config ────────────────────────────────────────────
   static const String _cloudName    = 'dmsgbxyzh';
   static const String _uploadPreset = 'serbisyo_alisto';
 
-  // ── Requirements (resolved from Citizens' Charter map) ───────────
   late final List<String> _requirements;
 
   final Map<int, File> _uploadedFiles = {};
@@ -265,31 +191,38 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
   bool _isSubmitting = false;
 
   int    get _uploadCount => _uploadedFiles.length;
-  bool   get _allUploaded => _uploadCount == _requirements.length;
+  bool   get _allUploaded =>
+      _uploadCount == _requirements.length;
   double get _progress    =>
-      _requirements.isEmpty ? 0 : _uploadCount / _requirements.length;
+      _requirements.isEmpty
+          ? 0
+          : _uploadCount / _requirements.length;
 
-  // ── Resolve requirements from the Citizens' Charter map ──────────
   @override
   void initState() {
-    super.initState();
-    _requirements = _serviceRequirements[widget.serviceName] ??
-        _defaultRequirements;
-  }
+  super.initState();
 
-  // ── Generate tracking ID ─────────────────────────────────────────
+  // Debug: i-check kung tama ang serviceName na natanggap
+  debugPrint('▶ serviceName received: "${widget.serviceName}"');
+
+  _requirements = _serviceRequirements[widget.serviceName?.trim()] ??
+      _defaultRequirements;
+
+  debugPrint('▶ Resolved ${_requirements.length} requirements');
+}
+
   String _generateTrackingId() {
     final now   = DateTime.now();
     final year  = now.year.toString().substring(2);
     final month = now.month.toString().padLeft(2, '0');
     final day   = now.day.toString().padLeft(2, '0');
-    final rand  = (now.millisecondsSinceEpoch % 10000)
-        .toString()
-        .padLeft(4, '0');
+    final rand  =
+        (now.millisecondsSinceEpoch % 10000)
+            .toString()
+            .padLeft(4, '0');
     return 'SA-$year$month$day-$rand';
   }
 
-  // ── Pick file ────────────────────────────────────────────────────
   Future<void> _pickFile(int index) async {
     setState(() => _isUploading[index] = true);
     try {
@@ -297,9 +230,11 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
         type: FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
       );
-      if (result != null && result.files.single.path != null) {
+      if (result != null &&
+          result.files.single.path != null) {
         setState(() {
-          _uploadedFiles[index] = File(result.files.single.path!);
+          _uploadedFiles[index] =
+              File(result.files.single.path!);
         });
       }
     } finally {
@@ -307,10 +242,11 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
     }
   }
 
-  void _removeFile(int index) => setState(() => _uploadedFiles.remove(index));
+  void _removeFile(int index) =>
+      setState(() => _uploadedFiles.remove(index));
 
-  // ── Upload single file to Cloudinary ────────────────────────────
-  Future<String> _uploadToCloudinary(File file, String docName) async {
+  Future<String> _uploadToCloudinary(
+      File file, String docName) async {
     final uri = Uri.parse(
         'https://api.cloudinary.com/v1_1/$_cloudName/auto/upload');
 
@@ -320,21 +256,23 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
       ..fields['public_id']     =
           '${docName.toLowerCase().replaceAll(' ', '_')}_'
           '${DateTime.now().millisecondsSinceEpoch}'
-      ..files.add(await http.MultipartFile.fromPath('file', file.path));
+      ..files.add(
+          await http.MultipartFile.fromPath('file', file.path));
 
-    final streamed = await request.send();
-    final body     = await streamed.stream.bytesToString();
-    final jsonData = jsonDecode(body) as Map<String, dynamic>;
+    final streamed  = await request.send();
+    final body      = await streamed.stream.bytesToString();
+    final jsonData  =
+        jsonDecode(body) as Map<String, dynamic>;
 
     if (streamed.statusCode == 200) {
       return jsonData['secure_url'] as String;
     } else {
-      final error = jsonData['error']?['message'] ?? 'Unknown error';
+      final error =
+          jsonData['error']?['message'] ?? 'Unknown error';
       throw Exception('Cloudinary upload failed: $error');
     }
   }
 
-  // ── Submit handler ───────────────────────────────────────────────
   Future<void> _handleSubmit() async {
     if (!_allUploaded) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -350,7 +288,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md)),
+              borderRadius:
+                  BorderRadius.circular(AppRadius.md)),
         ),
       );
       return;
@@ -360,8 +299,10 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Text('Submit request?', style: AppTextStyles.h2),
+            borderRadius:
+                BorderRadius.circular(AppRadius.lg)),
+        title: Text('Submit request?',
+            style: AppTextStyles.h2),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,7 +313,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
             Text(
               widget.serviceName ?? 'Service',
               style: AppTextStyles.body.copyWith(
-                color: AppColors.primary,
+                color:      AppColors.primary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -385,14 +326,16 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text('Cancel',
-                style: TextStyle(color: AppColors.muted)),
+                style:
+                    TextStyle(color: AppColors.muted)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md)),
+                  borderRadius: BorderRadius.circular(
+                      AppRadius.md)),
             ),
             child: const Text('Submit'),
           ),
@@ -404,12 +347,13 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final user       = FirebaseAuth.instance.currentUser!;
-      final requestRef =
-          FirebaseFirestore.instance.collection('requests').doc();
+      final user       =
+          FirebaseAuth.instance.currentUser!;
+      final requestRef = FirebaseFirestore.instance
+          .collection('requests')
+          .doc();
       final trackingId = _generateTrackingId();
 
-      // ── Show uploading snackbar ────────────────────────────────
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -417,7 +361,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               const SizedBox(
                 width: 16, height: 16,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white),
+                    strokeWidth: 2,
+                    color: Colors.white),
               ),
               const SizedBox(width: 12),
               const Text('Uploading documents...'),
@@ -427,34 +372,40 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
             behavior: SnackBarBehavior.floating,
             margin: const EdgeInsets.all(16),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.md)),
+                borderRadius: BorderRadius.circular(
+                    AppRadius.md)),
           ),
         );
       }
 
-      // ── Upload files to Cloudinary ─────────────────────────────
       final Map<String, String> documentUrls = {};
       for (final entry in _uploadedFiles.entries) {
         final docName = _requirements[entry.key];
-        final url     = await _uploadToCloudinary(entry.value, docName);
+        final url =
+            await _uploadToCloudinary(entry.value, docName);
         documentUrls[docName] = url;
       }
 
-      if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
 
-      // ── Get citizen full name ──────────────────────────────────
-      String citizenName = user.displayName ?? user.email ?? 'Unknown';
+      String citizenName =
+          user.displayName ?? user.email ?? 'Unknown';
       try {
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .get();
         if (userDoc.exists) {
-          citizenName = userDoc.data()?['fullName'] ?? citizenName;
+          citizenName =
+              userDoc.data()?['fullName'] ?? citizenName;
         }
       } catch (_) {}
 
-      // ── Save to Firestore ──────────────────────────────────────
+      // ── FIX: status is now 'submitted' to match admin pipeline ──
+      // Previously saved as 'pending' which is a different step
+      // in the workflow and caused the admin stepper/filter mismatch.
       await requestRef.set({
         // Identification
         'trackingId':   trackingId,
@@ -462,18 +413,18 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
         'citizenName':  citizenName,
         'citizenEmail': user.email ?? '',
 
-        // Service info
+        // Service info — department passed from services_screen
         'serviceName':  widget.serviceName ?? 'Unknown Service',
         'category':     widget.category    ?? 'General',
         'department':   widget.department  ?? 'Unassigned',
         'departmentId': widget.departmentId ?? '',
 
-        // Status
-        'status':             'pending',
+        // ── FIX: was 'pending', now 'submitted' ──────────────────
+        'status':             'submitted',
         'verificationStatus': 'unverified',
         'priority':           'MEDIUM',
 
-        // Documents — Cloudinary URLs
+        // Documents
         'requirementsUploaded': _requirements,
         'documentUrls':         documentUrls,
         'missingDocuments':     [],
@@ -487,26 +438,22 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
         // Rejection
         'rejectionReason': '',
 
-        // Status history
-        // ✅ Using Timestamp.now() — NOT FieldValue.serverTimestamp()
-        // because FieldValue.serverTimestamp() is NOT supported inside arrays.
+        // ── FIX: status history entry also updated to 'submitted' ─
         'statusHistory': [
           {
-            'status':    'pending',
+            'status':    'submitted',
             'note':      'Request submitted by citizen.',
             'updatedBy': user.uid,
             'updatedAt': Timestamp.now(),
           }
         ],
 
-        // Timestamps
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
       if (!mounted) return;
 
-      // ── Navigate to receipt ────────────────────────────────────
       Navigator.pushReplacementNamed(
         context,
         '/submission_receipt',
@@ -523,18 +470,19 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Submission failed: ${e.toString()}'),
+          content:
+              Text('Submission failed: ${e.toString()}'),
           backgroundColor: AppColors.danger,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md)),
+              borderRadius: BorderRadius.circular(
+                  AppRadius.md)),
         ),
       );
     }
   }
 
-  // ── BUILD ────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -544,19 +492,23 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
           _buildHeader(context),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(18, 4, 18, 120),
+              padding: const EdgeInsets.fromLTRB(
+                  18, 4, 18, 120),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
                 children: [
                   _buildProgressCard(),
                   const SizedBox(height: 20),
-                  Text('Required Documents', style: AppTextStyles.h2),
+                  Text('Required Documents',
+                      style: AppTextStyles.h2),
                   const SizedBox(height: 6),
-                  Text('Upload all documents below to proceed.',
+                  Text(
+                      'Upload all documents below to proceed.',
                       style: AppTextStyles.bodyMuted),
                   const SizedBox(height: 14),
-                  ...List.generate(
-                      _requirements.length, _buildRequirementTile),
+                  ...List.generate(_requirements.length,
+                      _buildRequirementTile),
                   const SizedBox(height: 28),
                   _buildSubmitButton(),
                 ],
@@ -565,7 +517,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: const BottomNav(selectedIndex: 2),
+      bottomNavigationBar:
+          const BottomNav(selectedIndex: 2),
     );
   }
 
@@ -581,7 +534,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 22),
+          padding:
+              const EdgeInsets.fromLTRB(18, 14, 18, 22),
           child: Row(
             children: [
               GestureDetector(
@@ -589,7 +543,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                 child: Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: Colors.white
+                        .withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(LucideIcons.arrowLeft,
@@ -599,7 +554,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       widget.serviceName ?? 'Service Form',
@@ -614,12 +570,17 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Fill out and upload required documents',
+                      widget.department?.isNotEmpty == true
+                          ? widget.department!
+                          : 'Fill out and upload required documents',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        color: Colors.white.withValues(alpha: 0.80),
+                        color: Colors.white
+                            .withValues(alpha: 0.80),
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -644,9 +605,11 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment:
+                MainAxisAlignment.spaceBetween,
             children: [
-              Text('Upload Progress', style: AppTextStyles.h3),
+              Text('Upload Progress',
+                  style: AppTextStyles.h3),
               Text(
                 '$_uploadCount / ${_requirements.length} files',
                 style: AppTextStyles.small.copyWith(
@@ -660,12 +623,15 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
           ),
           const SizedBox(height: 12),
           ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.pill),
+            borderRadius:
+                BorderRadius.circular(AppRadius.pill),
             child: LinearProgressIndicator(
               value: _progress,
               backgroundColor: AppColors.divider,
               valueColor: AlwaysStoppedAnimation<Color>(
-                _allUploaded ? AppColors.success : AppColors.primary,
+                _allUploaded
+                    ? AppColors.success
+                    : AppColors.primary,
               ),
               minHeight: 8,
             ),
@@ -679,7 +645,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               Text(
                 'All documents uploaded. Ready to submit.',
                 style: AppTextStyles.small.copyWith(
-                  color: AppColors.success,
+                  color:      AppColors.success,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -694,13 +660,15 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
     final file        = _uploadedFiles[index];
     final isUploading = _isUploading[index] ?? false;
     final isDone      = file != null;
-    final fileName    = isDone ? file.path.split('/').last : null;
+    final fileName =
+        isDone ? file.path.split('/').last : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius:
+            BorderRadius.circular(AppRadius.lg),
         border: Border.all(
           color: isDone
               ? AppColors.success.withValues(alpha: 0.3)
@@ -742,7 +710,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
             const SizedBox(width: 14),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
                 children: [
                   Text(
                     _requirements[index],
@@ -756,7 +725,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                     Text(
                       fileName,
                       style: AppTextStyles.small.copyWith(
-                        color: AppColors.success,
+                        color:      AppColors.success,
                         fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
@@ -778,7 +747,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: AppColors.dangerLight,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius:
+                        BorderRadius.circular(10),
                   ),
                   child: const Icon(LucideIcons.trash2,
                       color: AppColors.danger, size: 16),
@@ -792,8 +762,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                       horizontal: 14, vertical: 9),
                   decoration: BoxDecoration(
                     color: AppColors.cardBg,
-                    borderRadius:
-                        BorderRadius.circular(AppRadius.pill),
+                    borderRadius: BorderRadius.circular(
+                        AppRadius.pill),
                     border: Border.all(
                         color: AppColors.primary
                             .withValues(alpha: 0.3),
@@ -802,8 +772,8 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                   child: Text(
                     'Upload',
                     style: GoogleFonts.inter(
-                      color: AppColors.primary,
-                      fontSize: 12,
+                      color:      AppColors.primary,
+                      fontSize:   12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -826,29 +796,35 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
         color: _allUploaded && !_isSubmitting
             ? null
             : AppColors.muted.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow:
-            _allUploaded && !_isSubmitting ? AppShadows.primary : [],
+        borderRadius:
+            BorderRadius.circular(AppRadius.lg),
+        boxShadow: _allUploaded && !_isSubmitting
+            ? AppShadows.primary
+            : [],
       ),
       child: ElevatedButton(
-        onPressed:
-            (_isSubmitting || !_allUploaded) ? null : _handleSubmit,
+        onPressed: (_isSubmitting || !_allUploaded)
+            ? null
+            : _handleSubmit,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
+          backgroundColor:         Colors.transparent,
           disabledBackgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
+          shadowColor:             Colors.transparent,
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.lg)),
+              borderRadius:
+                  BorderRadius.circular(AppRadius.lg)),
         ),
         child: _isSubmitting
             ? const SizedBox(
                 width: 22, height: 22,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2.5, color: AppColors.primary),
+                    strokeWidth: 2.5,
+                    color: AppColors.primary),
               )
             : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
                 children: [
                   Icon(LucideIcons.send,
                       size: 18,
@@ -862,7 +838,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                         : 'Upload all documents to continue',
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w700,
-                      fontSize: 15,
+                      fontSize:   15,
                       color: _allUploaded
                           ? Colors.white
                           : AppColors.muted,

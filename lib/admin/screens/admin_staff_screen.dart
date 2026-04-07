@@ -7,7 +7,8 @@ class AdminStaffScreen extends StatefulWidget {
   const AdminStaffScreen({super.key});
 
   @override
-  State<AdminStaffScreen> createState() => _AdminStaffScreenState();
+  State<AdminStaffScreen> createState() =>
+      _AdminStaffScreenState();
 }
 
 class _AdminStaffScreenState extends State<AdminStaffScreen>
@@ -35,7 +36,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       setState(() {
-        _tabIndex = _tabController.index;
+        _tabIndex    = _tabController.index;
         _currentPage = 0;
         _applySearch();
       });
@@ -50,11 +51,9 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     super.dispose();
   }
 
-  // ── Data loading ───────────────────────────────────────────────────────────
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      // Load departments
       final deptSnap = await FirebaseFirestore.instance
           .collection('departments')
           .where('isActive', isEqualTo: true)
@@ -64,41 +63,41 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
         'name': d.data()['name'] ?? '',
       }).toList();
 
-      // Load all admin/staff accounts
       final staffSnap = await FirebaseFirestore.instance
           .collection('admin')
           .where('role', isEqualTo: 'admin')
           .get();
 
-      // Build dept name map
       final Map<String, String> deptNames = {};
       for (final d in _departments) {
-        deptNames[d['id'] as String] = d['name'] as String;
+        deptNames[d['id'] as String] =
+            d['name'] as String;
       }
 
       _allStaff = await Future.wait(
         staffSnap.docs.map((d) async {
-          final data     = d.data();
-          final deptId   = data['departmentId']?.toString() ?? '';
-          // Count assigned requests
+          final data   = d.data();
+          final deptId =
+              data['departmentId']?.toString() ?? '';
           int assignedCount = 0;
           try {
-            final reqSnap = await FirebaseFirestore.instance
-                .collection('requests')
-                .where('assignedTo', isEqualTo: d.id)
-                .get();
+            final reqSnap =
+                await FirebaseFirestore.instance
+                    .collection('requests')
+                    .where('assignedTo', isEqualTo: d.id)
+                    .get();
             assignedCount = reqSnap.docs.length;
           } catch (_) {}
 
           return {
-            'uid':          d.id,
-            'fullName':     data['fullName'] ?? 'Unknown',
-            'email':        data['email'] ?? '',
-            'phone':        data['phone'] ?? '',
-            'department':   deptNames[deptId] ?? '—',
-            'departmentId': deptId,
-            'isActive':     data['isActive'] ?? false,
-            'createdAt':    data['createdAt'],
+            'uid':           d.id,
+            'fullName':      data['fullName'] ?? 'Unknown',
+            'email':         data['email'] ?? '',
+            'phone':         data['phone'] ?? '',
+            'department':    deptNames[deptId] ?? '—',
+            'departmentId':  deptId,
+            'isActive':      data['isActive'] ?? false,
+            'createdAt':     data['createdAt'],
             'assignedCount': assignedCount,
           };
         }),
@@ -108,10 +107,10 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
           (a['fullName'] as String)
               .compareTo(b['fullName'] as String));
 
-      _activeStaff  = _allStaff
-          .where((s) => s['isActive'] == true).toList();
-      _pendingStaff = _allStaff
-          .where((s) => s['isActive'] == false).toList();
+      _activeStaff  =
+          _allStaff.where((s) => s['isActive'] == true).toList();
+      _pendingStaff =
+          _allStaff.where((s) => s['isActive'] == false).toList();
 
       _applySearch();
     } catch (e) {
@@ -121,28 +120,34 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
   }
 
   void _applySearch() {
-    final source = _tabIndex == 0
-        ? _activeStaff
-        : _pendingStaff;
+    final source =
+        _tabIndex == 0 ? _activeStaff : _pendingStaff;
 
     if (_searchQuery.isEmpty) {
       _filteredStaff = List.from(source);
     } else {
       final q = _searchQuery.toLowerCase();
       _filteredStaff = source.where((s) =>
-          s['fullName'].toString().toLowerCase().contains(q) ||
-          s['email'].toString().toLowerCase().contains(q) ||
-          s['department'].toString().toLowerCase().contains(q))
-          .toList();
+          s['fullName']
+              .toString()
+              .toLowerCase()
+              .contains(q) ||
+          s['email']
+              .toString()
+              .toLowerCase()
+              .contains(q) ||
+          s['department']
+              .toString()
+              .toLowerCase()
+              .contains(q)).toList();
     }
     setState(() => _currentPage = 0);
   }
 
-  // ── Pagination ─────────────────────────────────────────────────────────────
   List<Map<String, dynamic>> get _paged {
     final start = _currentPage * _pageSize;
-    final end =
-        (start + _pageSize).clamp(0, _filteredStaff.length);
+    final end   = (start + _pageSize)
+        .clamp(0, _filteredStaff.length);
     if (start >= _filteredStaff.length) return [];
     return _filteredStaff.sublist(start, end);
   }
@@ -150,7 +155,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
   int get _totalPages =>
       (_filteredStaff.length / _pageSize).ceil();
 
-  // ── BUILD ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -177,7 +181,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     );
   }
 
-  // ── Header ─────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
     return Row(
       children: [
@@ -207,8 +210,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
-            border:
-                Border.all(color: const Color(0xFFEEEEEE)),
+            border: Border.all(
+                color: const Color(0xFFEEEEEE)),
           ),
           child: IconButton(
             icon: const Icon(Icons.refresh_rounded,
@@ -217,10 +220,16 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
           ),
         ),
         const SizedBox(width: 10),
+
+        // ── FIX: "Add Staff" now shows an informational dialog ──────────────
+        // Previously this created a Firestore record with isActive: true but
+        // no Firebase Auth account — resulting in a broken account that could
+        // never log in. Staff must register themselves via the login page and
+        // wait for superadmin approval. Direct creation is removed.
         ElevatedButton.icon(
-          onPressed: () => _showStaffDialog(),
-          icon: const Icon(Icons.add_rounded, size: 16),
-          label: Text('Add Staff',
+          onPressed: _showAddStaffInfoDialog,
+          icon: const Icon(Icons.info_outline_rounded, size: 16),
+          label: Text('How to Add Staff',
               style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -239,14 +248,137 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     );
   }
 
-  // ── Stats row ──────────────────────────────────────────────────────────────
+  // ── FIX: Replaces the broken _addStaff() direct-create dialog ─────────────
+  // Explains the correct registration flow to superadmins so they don't
+  // accidentally create broken accounts.
+  void _showAddStaffInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.badge_rounded,
+                color: AppColors.primary, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Text('Adding New Staff',
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16)),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Staff members must register their own accounts using the correct flow:',
+              style: GoogleFonts.inter(
+                  fontSize: 13, color: AppColors.muted),
+            ),
+            const SizedBox(height: 16),
+            _infoStep('01', 'Staff visits the admin login page'),
+            const SizedBox(height: 10),
+            _infoStep('02',
+                'Clicks "Request Access" to register their account'),
+            const SizedBox(height: 10),
+            _infoStep('03',
+                'Their account appears here under "Pending Approval"'),
+            const SizedBox(height: 10),
+            _infoStep('04',
+                'You approve it by clicking the green checkmark'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color:
+                        AppColors.primary.withValues(alpha: 0.15)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.info_outline_rounded,
+                    color: AppColors.primary, size: 15),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'This ensures each staff member has their own Firebase Auth account and can actually log in.',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: AppColors.primary,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('Got it',
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoStep(String num, String text) {
+    return Row(children: [
+      Container(
+        width: 26, height: 26,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.25)),
+        ),
+        child: Center(
+          child: Text(num,
+              style: GoogleFonts.inter(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+              )),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(text,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: const Color(0xFF333333),
+            )),
+      ),
+    ]);
+  }
+
   Widget _buildStatsRow() {
-    final total   = _allStaff.length;
-    final active  = _activeStaff.length;
-    final pending = _pendingStaff.length;
+    final total    = _allStaff.length;
+    final active   = _activeStaff.length;
+    final pending  = _pendingStaff.length;
     final withDept = _allStaff
         .where((s) =>
-            (s['departmentId'] as String?)?.isNotEmpty == true)
+            (s['departmentId'] as String?)?.isNotEmpty ==
+            true)
         .length;
 
     final stats = <Map<String, dynamic>>[
@@ -295,8 +427,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color:
-                      Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black
+                      .withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -308,7 +440,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                   width: 40, height: 40,
                   decoration: BoxDecoration(
                     color: s['bg'] as Color,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius:
+                        BorderRadius.circular(10),
                   ),
                   child: Icon(s['icon'] as IconData,
                       color: color, size: 20),
@@ -344,7 +477,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     );
   }
 
-  // ── Search + Tabs ──────────────────────────────────────────────────────────
   Widget _buildSearchAndTabs() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -361,7 +493,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
       ),
       child: Row(
         children: [
-          // Search
           Expanded(
             child: SizedBox(
               height: 40,
@@ -393,29 +524,33 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                       : null,
                   filled: true,
                   fillColor: const Color(0xFFF7F8FC),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(
+                          horizontal: 12),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius:
+                        BorderRadius.circular(10),
                     borderSide: const BorderSide(
                         color: Color(0xFFEEEEEE)),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius:
+                        BorderRadius.circular(10),
                     borderSide: const BorderSide(
                         color: Color(0xFFEEEEEE)),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius:
+                        BorderRadius.circular(10),
                     borderSide: const BorderSide(
-                        color: AppColors.primary, width: 1.5),
+                        color: AppColors.primary,
+                        width: 1.5),
                   ),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 16),
-          // Tab switcher
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFFF7F8FC),
@@ -435,7 +570,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
               labelColor: Colors.white,
               unselectedLabelColor: AppColors.muted,
               labelStyle: GoogleFonts.inter(
-                  fontSize: 12, fontWeight: FontWeight.w600),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600),
               unselectedLabelStyle:
                   GoogleFonts.inter(fontSize: 12),
               dividerColor: Colors.transparent,
@@ -480,8 +616,9 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                       const SizedBox(width: 6),
                       if (_pendingStaff.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
+                          padding:
+                              const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
                             color: _tabIndex == 1
                                 ? Colors.white
@@ -513,7 +650,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     );
   }
 
-  // ── Table ──────────────────────────────────────────────────────────────────
   Widget _buildTable() {
     return Container(
       decoration: BoxDecoration(
@@ -529,7 +665,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
       ),
       child: Column(
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.symmetric(
                 horizontal: 20, vertical: 14),
@@ -553,7 +688,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFF0F0F0)),
+          const Divider(
+              height: 1, color: Color(0xFFF0F0F0)),
           Expanded(
             child: _paged.isEmpty
                 ? _buildEmpty()
@@ -588,8 +724,10 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
   }
 
   Widget _buildRow(Map<String, dynamic> s) {
-    final isActive = s['isActive'] as bool? ?? false;
-    final initials = _initials(s['fullName'] as String);
+    final isActive =
+        s['isActive'] as bool? ?? false;
+    final initials =
+        _initials(s['fullName'] as String);
     final assigned = s['assignedCount'] as int? ?? 0;
 
     return InkWell(
@@ -600,7 +738,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
             horizontal: 20, vertical: 12),
         child: Row(
           children: [
-            // Avatar + name
             Expanded(
               flex: 3,
               child: Row(
@@ -623,7 +760,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(s['fullName'] as String,
+                    child: Text(
+                        s['fullName'] as String,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
                           fontSize: 13,
@@ -634,7 +772,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                 ],
               ),
             ),
-            // Email
             Expanded(
               flex: 3,
               child: Text(s['email'] as String,
@@ -643,7 +780,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                       fontSize: 12,
                       color: const Color(0xFF555555))),
             ),
-            // Department
             Expanded(
               flex: 2,
               child: Text(s['department'] as String,
@@ -652,7 +788,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                       fontSize: 12,
                       color: const Color(0xFF555555))),
             ),
-            // Assigned requests
             Expanded(
               flex: 2,
               child: Container(
@@ -663,7 +798,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                       ? const Color(0xFF3B82F6)
                           .withValues(alpha: 0.10)
                       : const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius:
+                      BorderRadius.circular(20),
                 ),
                 child: Text(
                   '$assigned request${assigned != 1 ? 's' : ''}',
@@ -678,16 +814,15 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                 ),
               ),
             ),
-            // Date joined
             Expanded(
               flex: 2,
               child: Text(
                 _fmtTs(s['createdAt'] as Timestamp?),
                 style: GoogleFonts.inter(
-                    fontSize: 11, color: AppColors.muted),
+                    fontSize: 11,
+                    color: AppColors.muted),
               ),
             ),
-            // Status
             Expanded(
               flex: 2,
               child: Container(
@@ -699,7 +834,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                           .withValues(alpha: 0.10)
                       : const Color(0xFFF59E0B)
                           .withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius:
+                      BorderRadius.circular(20),
                 ),
                 child: Text(
                   isActive ? 'Active' : 'Pending',
@@ -714,24 +850,25 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                 ),
               ),
             ),
-            // Actions
             Expanded(
               flex: 3,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
                 children: [
                   _actionBtn(
                     icon: Icons.visibility_rounded,
                     color: const Color(0xFF3B82F6),
                     tooltip: 'View Details',
-                    onTap: () => _showStaffDetailDialog(s),
+                    onTap: () =>
+                        _showStaffDetailDialog(s),
                   ),
                   const SizedBox(width: 6),
                   _actionBtn(
                     icon: Icons.edit_rounded,
                     color: const Color(0xFF8B5CF6),
-                    tooltip: 'Edit',
-                    onTap: () => _showStaffDialog(staff: s),
+                    tooltip: 'Edit Department',
+                    onTap: () => _showEditDeptDialog(s),
                   ),
                   if (!isActive) ...[
                     const SizedBox(width: 6),
@@ -802,7 +939,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
         children: [
           Icon(Icons.badge_outlined,
               size: 48,
-              color: AppColors.muted.withValues(alpha: 0.3)),
+              color: AppColors.muted
+                  .withValues(alpha: 0.3)),
           const SizedBox(height: 12),
           Text(
             _tabIndex == 0
@@ -815,15 +953,19 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
             ),
           ),
           const SizedBox(height: 4),
-          Text('Try adjusting your search',
-              style: GoogleFonts.inter(
-                  fontSize: 12, color: AppColors.muted)),
+          Text(
+            _tabIndex == 0
+                ? 'Staff will appear here once approved'
+                : 'Staff register via the login page and appear here',
+            style: GoogleFonts.inter(
+                fontSize: 12, color: AppColors.muted),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
   }
 
-  // ── Pagination ─────────────────────────────────────────────────────────────
   Widget _buildPagination() {
     if (_totalPages <= 1) return const SizedBox.shrink();
     return Row(
@@ -840,20 +982,24 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
         _pageBtn(
           icon: Icons.chevron_left_rounded,
           enabled: _currentPage > 0,
-          onTap: () => setState(() => _currentPage--),
+          onTap: () =>
+              setState(() => _currentPage--),
         ),
         const SizedBox(width: 8),
         ...List.generate(_totalPages, (i) {
           final sel = i == _currentPage;
           return GestureDetector(
-            onTap: () => setState(() => _currentPage = i),
+            onTap: () =>
+                setState(() => _currentPage = i),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
+              duration:
+                  const Duration(milliseconds: 150),
               width: 32, height: 32,
               margin: const EdgeInsets.only(right: 4),
               decoration: BoxDecoration(
-                color:
-                    sel ? AppColors.primary : Colors.white,
+                color: sel
+                    ? AppColors.primary
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: sel
@@ -878,7 +1024,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
         _pageBtn(
           icon: Icons.chevron_right_rounded,
           enabled: _currentPage < _totalPages - 1,
-          onTap: () => setState(() => _currentPage++),
+          onTap: () =>
+              setState(() => _currentPage++),
         ),
       ],
     );
@@ -897,8 +1044,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(8),
-          border:
-              Border.all(color: const Color(0xFFEEEEEE)),
+          border: Border.all(
+              color: const Color(0xFFEEEEEE)),
         ),
         child: Icon(icon,
             size: 18,
@@ -910,7 +1057,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
   }
 
   // ── Staff detail dialog ────────────────────────────────────────────────────
-  void _showStaffDetailDialog(Map<String, dynamic> s) async {
+  void _showStaffDetailDialog(
+      Map<String, dynamic> s) async {
     List<Map<String, dynamic>> requests = [];
     try {
       final snap = await FirebaseFirestore.instance
@@ -933,7 +1081,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     if (!mounted) return;
 
     final isActive = s['isActive'] as bool? ?? false;
-    final initials = _initials(s['fullName'] as String);
+    final initials =
+        _initials(s['fullName'] as String);
 
     showDialog(
       context: context,
@@ -946,11 +1095,11 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
           width: 680,
           constraints: BoxConstraints(
             maxHeight:
-                MediaQuery.of(context).size.height * 0.85,
+                MediaQuery.of(context).size.height *
+                    0.85,
           ),
           child: Column(
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
@@ -989,7 +1138,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                         crossAxisAlignment:
                             CrossAxisAlignment.start,
                         children: [
-                          Text(s['fullName'] as String,
+                          Text(
+                              s['fullName'] as String,
                               style: GoogleFonts.inter(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
@@ -1027,15 +1177,14 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                     ),
                     const SizedBox(width: 12),
                     IconButton(
-                      onPressed: () => Navigator.pop(ctx),
+                      onPressed: () =>
+                          Navigator.pop(ctx),
                       icon: const Icon(Icons.close,
                           color: Colors.white, size: 20),
                     ),
                   ],
                 ),
               ),
-
-              // Body
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
@@ -1047,7 +1196,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                         crossAxisAlignment:
                             CrossAxisAlignment.start,
                         children: [
-                          // Profile info
                           Expanded(
                             child: _infoCard(
                               'Staff Information',
@@ -1077,7 +1225,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                             ),
                           ),
                           const SizedBox(width: 16),
-                          // Request summary
                           Expanded(
                             child: _infoCard(
                               'Request Summary',
@@ -1106,15 +1253,14 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                         ],
                       ),
                       const SizedBox(height: 20),
-
-                      // Assigned requests
                       _infoCard(
                         'Assigned Requests',
                         [],
                         child: requests.isEmpty
                             ? Padding(
-                                padding: const EdgeInsets
-                                    .symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(
+                                        vertical: 16),
                                 child: Center(
                                   child: Text(
                                     'No requests assigned yet',
@@ -1136,8 +1282,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                   ),
                 ),
               ),
-
-              // Footer
               Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 24, vertical: 16),
@@ -1149,10 +1293,12 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                   ),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment:
+                      MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
+                      onPressed: () =>
+                          Navigator.pop(ctx),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(
                             color: Color(0xFFEEEEEE)),
@@ -1169,8 +1315,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                             color: AppColors.muted,
                           )),
                     ),
-                    const SizedBox(width: 10),
                     if (!isActive) ...[
+                      const SizedBox(width: 10),
                       ElevatedButton.icon(
                         onPressed: () {
                           Navigator.pop(ctx);
@@ -1194,53 +1340,28 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                           shape: RoundedRectangleBorder(
                               borderRadius:
                                   BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 10),
+                          padding:
+                              const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 10),
                         ),
                       ),
-                      const SizedBox(width: 10),
                     ],
+                    const SizedBox(width: 10),
                     ElevatedButton.icon(
                       onPressed: () {
                         Navigator.pop(ctx);
-                        _showStaffDialog(staff: s);
+                        _showEditDeptDialog(s);
                       },
                       icon: const Icon(Icons.edit_rounded,
                           size: 15),
-                      label: Text('Edit',
+                      label: Text('Edit Department',
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           )),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _confirmDelete(
-                            s['uid'] as String,
-                            s['fullName'] as String);
-                      },
-                      icon: const Icon(Icons.delete_rounded,
-                          size: 15),
-                      label: Text('Delete',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          )),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            const Color(0xFFEF4444),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -1260,293 +1381,139 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     );
   }
 
-  // ── Add / Edit staff dialog ────────────────────────────────────────────────
-  void _showStaffDialog({Map<String, dynamic>? staff}) {
-    final isEdit     = staff != null;
-    final nameCtrl   = TextEditingController(
-        text: isEdit ? staff['fullName'] as String : '');
-    final emailCtrl  = TextEditingController(
-        text: isEdit ? staff['email'] as String : '');
-    final phoneCtrl  = TextEditingController(
-        text: isEdit ? staff['phone'] as String : '');
-    String? selectedDept = isEdit &&
-            (staff['departmentId'] as String?)?.isNotEmpty ==
-                true
-        ? staff['departmentId'] as String
-        : null;
-    final formKey = GlobalKey<FormState>();
+  // ── Edit Department dialog (replaces full edit dialog) ─────────────────────
+  void _showEditDeptDialog(Map<String, dynamic> s) {
+    String? selectedDept =
+        (s['departmentId'] as String?)?.isNotEmpty == true
+            ? s['departmentId'] as String
+            : null;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setInner) => Dialog(
+        builder: (ctx, setInner) => AlertDialog(
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
-          child: Container(
-            width: 500,
-            padding: const EdgeInsets.all(28),
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Row(
-                    children: [
-                      Container(
-                        width: 40, height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary
-                              .withValues(alpha: 0.10),
-                          borderRadius:
-                              BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.badge_rounded,
-                            color: AppColors.primary,
-                            size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          isEdit ? 'Edit Staff' : 'Add Staff',
+              borderRadius: BorderRadius.circular(16)),
+          title: Text('Assign Department',
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16)),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Staff: ${s['fullName']}',
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AppColors.muted),
+                ),
+                const SizedBox(height: 16),
+                Text('Department',
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                        color:
+                            const Color(0xFFEEEEEE)),
+                    borderRadius:
+                        BorderRadius.circular(10),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selectedDept,
+                      isExpanded: true,
+                      hint: Text('Choose department...',
                           style: GoogleFonts.inter(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF111111),
-                          ),
+                              fontSize: 13,
+                              color: AppColors.muted)),
+                      items: [
+                        DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('None',
+                              style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: AppColors.muted)),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close,
-                            size: 18,
-                            color: AppColors.muted),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Full name
-                  _fieldLabel('Full Name'),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: nameCtrl,
-                    style: GoogleFonts.inter(fontSize: 13),
-                    validator: (v) =>
-                        v == null || v.isEmpty
-                            ? 'Name is required'
-                            : null,
-                    decoration: _inputDeco('e.g. Juan dela Cruz'),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Email
-                  _fieldLabel('Email Address'),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: emailCtrl,
-                    enabled: !isEdit,
-                    style: GoogleFonts.inter(fontSize: 13),
-                    validator: (v) =>
-                        v == null || v.isEmpty
-                            ? 'Email is required'
-                            : null,
-                    decoration: _inputDeco(
-                        'e.g. staff@laoag.gov.ph'),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Phone
-                  _fieldLabel('Phone (optional)'),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: phoneCtrl,
-                    style: GoogleFonts.inter(fontSize: 13),
-                    decoration:
-                        _inputDeco('e.g. 09XXXXXXXXX'),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Department
-                  _fieldLabel('Department'),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F8FC),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: const Color(0xFFEEEEEE)),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedDept,
-                        isExpanded: true,
-                        hint: Text('Select department...',
-                            style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: AppColors.muted)),
-                        icon: const Icon(
-                            Icons
-                                .keyboard_arrow_down_rounded,
-                            size: 16,
-                            color: AppColors.muted),
-                        style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: const Color(0xFF333333)),
-                        items: [
-                          DropdownMenuItem<String>(
-                            value: null,
-                            child: Text('None',
+                        ..._departments.map(
+                          (d) => DropdownMenuItem<String>(
+                            value: d['id'] as String,
+                            child: Text(
+                                d['name'] as String,
                                 style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    color: AppColors.muted)),
+                                    fontSize: 13)),
                           ),
-                          ..._departments.map(
-                            (d) => DropdownMenuItem<String>(
-                              value: d['id'] as String,
-                              child: Text(d['name'] as String,
-                                  style: GoogleFonts.inter(
-                                      fontSize: 13)),
-                            ),
-                          ),
-                        ],
-                        onChanged: (v) => setInner(
-                            () => selectedDept = v),
-                      ),
+                        ),
+                      ],
+                      onChanged: (v) => setInner(
+                          () => selectedDept = v),
                     ),
                   ),
-                  const SizedBox(height: 28),
-
-                  // Buttons
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                              color: Color(0xFFEEEEEE)),
-                          shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 12),
-                        ),
-                        child: Text('Cancel',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.muted,
-                            )),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          if (!formKey.currentState!
-                              .validate()) {
-                            return;
-                          }
-                          Navigator.pop(ctx);
-                          if (isEdit) {
-                            await _updateStaff(
-                              staff['uid'] as String,
-                              nameCtrl.text.trim(),
-                              phoneCtrl.text.trim(),
-                              selectedDept,
-                            );
-                          } else {
-                            await _addStaff(
-                              nameCtrl.text.trim(),
-                              emailCtrl.text.trim(),
-                              phoneCtrl.text.trim(),
-                              selectedDept,
-                            );
-                          }
-                        },
-                        icon: Icon(
-                            isEdit
-                                ? Icons.save_rounded
-                                : Icons.add_rounded,
-                            size: 16),
-                        label: Text(
-                            isEdit ? 'Save Changes' : 'Add',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            )),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel',
+                  style: GoogleFonts.inter(
+                      color: AppColors.muted)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _updateStaffDept(
+                    s['uid'] as String, selectedDept);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(8)),
+              ),
+              child: Text('Save',
+                  style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ],
         ),
       ),
     );
   }
 
   // ── Firestore actions ──────────────────────────────────────────────────────
-  Future<void> _addStaff(
-    String fullName,
-    String email,
-    String phone,
-    String? deptId,
-  ) async {
+  Future<void> _updateStaffDept(
+      String uid, String? deptId) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('admin')
-          .add({
-        'fullName':     fullName,
-        'email':        email,
-        'phone':        phone,
-        'role':         'admin',
-        'departmentId': deptId ?? '',
-        'isActive':     true,
-        'createdAt':    FieldValue.serverTimestamp(),
-      });
-      if (mounted) {
-        _showSnack('Staff added ✓', AppColors.success);
-        _loadData();
+      String deptName = '';
+      if (deptId != null && deptId.isNotEmpty) {
+        final d = _departments.firstWhere(
+            (d) => d['id'] == deptId,
+            orElse: () => {'name': ''});
+        deptName = d['name'] as String? ?? '';
       }
-    } catch (e) {
-      if (mounted) {
-        _showSnack('Failed: $e', AppColors.danger);
-      }
-    }
-  }
-
-  Future<void> _updateStaff(
-    String uid,
-    String fullName,
-    String phone,
-    String? deptId,
-  ) async {
-    try {
       await FirebaseFirestore.instance
           .collection('admin')
           .doc(uid)
           .update({
-        'fullName':     fullName,
-        'phone':        phone,
         'departmentId': deptId ?? '',
+        'department':   deptName,
         'updatedAt':    FieldValue.serverTimestamp(),
       });
       if (mounted) {
-        _showSnack('Staff updated ✓', AppColors.success);
+        _showSnack('Department updated ✓',
+            AppColors.success);
         _loadData();
       }
     } catch (e) {
@@ -1568,7 +1535,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
       });
       if (mounted) {
         _showSnack(
-            '$name\'s access approved ✓', AppColors.success);
+            '$name\'s access approved ✓',
+            AppColors.success);
         _loadData();
       }
     } catch (e) {
@@ -1590,7 +1558,9 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
           current
               ? 'Account deactivated'
               : 'Account activated ✓',
-          current ? AppColors.warning : AppColors.success,
+          current
+              ? AppColors.warning
+              : AppColors.success,
         );
         _loadData();
       }
@@ -1648,7 +1618,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
               backgroundColor: const Color(0xFFEF4444),
               elevation: 0,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius:
+                      BorderRadius.circular(8)),
             ),
             child: Text('Delete',
                 style: GoogleFonts.inter(
@@ -1673,7 +1644,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
       }
     } catch (e) {
       if (mounted) {
-        _showSnack('Failed: $e', AppColors.danger);
+        _showSnack(
+            'Failed to delete: $e', AppColors.danger);
       }
     }
   }
@@ -1734,7 +1706,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     );
   }
 
-  Widget _summaryItem(String label, int value, Color color) {
+  Widget _summaryItem(
+      String label, int value, Color color) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -1774,7 +1747,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
+        border: Border.all(
+            color: const Color(0xFFEEEEEE)),
       ),
       child: Row(
         children: [
@@ -1790,7 +1764,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
           const SizedBox(width: 10),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(r['serviceName'] as String,
                     overflow: TextOverflow.ellipsis,
@@ -1814,7 +1789,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                     horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius:
+                      BorderRadius.circular(20),
                 ),
                 child: Text(label,
                     style: GoogleFonts.inter(
@@ -1835,53 +1811,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     );
   }
 
-  Widget _fieldLabel(String label) {
-    return Text(label,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF333333),
-        ));
-  }
-
-  InputDecoration _inputDeco(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: GoogleFonts.inter(
-          color: AppColors.muted, fontSize: 12),
-      filled: true,
-      fillColor: const Color(0xFFF7F8FC),
-      contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide:
-            const BorderSide(color: Color(0xFFEEEEEE)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide:
-            const BorderSide(color: Color(0xFFEEEEEE)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-            color: AppColors.primary, width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide:
-            const BorderSide(color: Color(0xFFEF4444)),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-            color: Color(0xFFEF4444), width: 1.5),
-      ),
-    );
-  }
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
   void _showSnack(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
