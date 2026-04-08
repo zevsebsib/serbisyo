@@ -45,7 +45,7 @@ class _AdminNotificationsScreenState
     super.dispose();
   }
 
-  // ΓöÇΓöÇ Load ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Load 
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
@@ -132,7 +132,7 @@ class _AdminNotificationsScreenState
   int get _totalPages =>
       (_filteredNotifs.length / _pageSize).ceil();
 
-  // ΓöÇΓöÇ Mark read/unread ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Mark read/unread 
   Future<void> _toggleRead(Map<String, dynamic> n) async {
     final ref      = n['ref'] as DocumentReference;
     final isRead   = n['isRead'] as bool;
@@ -153,7 +153,7 @@ class _AdminNotificationsScreenState
     _loadData();
   }
 
-  // ΓöÇΓöÇ Send manual notification ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Send manual notification 
   void _showSendDialog() {
     String? selectedUid;
     final titleCtrl = TextEditingController();
@@ -257,7 +257,7 @@ class _AdminNotificationsScreenState
                           DropdownMenuItem<String>(
                             value: c['uid'] as String,
                             child: Text(
-                              '${c['fullName']} ΓÇö ${c['email']}',
+                              '${c['fullName']} - ${c['email']}',
                               overflow:
                                   TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
@@ -365,7 +365,7 @@ class _AdminNotificationsScreenState
                                     final nav = Navigator.of(ctx);
                                     nav.pop();
                                     _showSnack(
-                                        'Notification sent Γ£ô',
+                                        'Notification sent ✓',
                                         AppColors.success);
                                     _loadData();
                                   }
@@ -427,7 +427,7 @@ class _AdminNotificationsScreenState
     );
   }
 
-  // ΓöÇΓöÇ BUILD ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── BUILD
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -487,7 +487,7 @@ class _AdminNotificationsScreenState
               ]),
               const SizedBox(height: 4),
               Text(
-                '${_allNotifs.length} total ┬╖ ${_filteredNotifs.length} shown',
+                '${_allNotifs.length} total · ${_filteredNotifs.length} shown',
                 style: GoogleFonts.inter(
                     fontSize: 13,
                     color: AppColors.muted),
@@ -748,7 +748,7 @@ class _AdminNotificationsScreenState
     );
   }
 
-  // ΓöÇΓöÇ Notification detail popup ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Notification detail popup
   void _showNotificationDetail(Map<String, dynamic> n) {
     final type     = n['type'] as String;
     final typeConf = _typeConfig(type);
@@ -781,7 +781,7 @@ class _AdminNotificationsScreenState
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // ΓöÇΓöÇ Header ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+                // ── Header ──────────────────────────────────────
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -856,7 +856,7 @@ class _AdminNotificationsScreenState
                   ),
                 ),
 
-                // ΓöÇΓöÇ Body ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+                // ── Body ────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
@@ -912,7 +912,7 @@ class _AdminNotificationsScreenState
                   ),
                 ),
 
-                // ΓöÇΓöÇ Footer ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+                // Footer
                 Padding(
                   padding:
                       const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -1210,7 +1210,7 @@ class _AdminNotificationsScreenState
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          'Showing ${_currentPage * _pageSize + 1}ΓÇô'
+          'Showing ${_currentPage * _pageSize + 1}–'
           '${(_currentPage * _pageSize + _paged.length)} '
           'of ${_filteredNotifs.length}',
           style: GoogleFonts.inter(
@@ -1270,7 +1270,7 @@ class _AdminNotificationsScreenState
     );
   }
 
-  // ΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // Helpers 
   Widget _hCell(String label,
       {int flex = 1,
       TextAlign align = TextAlign.left}) {
@@ -1401,7 +1401,7 @@ class _AdminNotificationsScreenState
   }
 
   String _fmtTs(Timestamp? ts) {
-    if (ts == null) return 'ΓÇö';
+    if (ts == null) return '-';
     final d = ts.toDate();
     const mo = [
       'Jan','Feb','Mar','Apr','May','Jun',

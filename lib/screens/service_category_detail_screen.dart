@@ -36,7 +36,7 @@ class _ServiceCategoryDetailScreenState
   // Category display titles
   static const Map<String, Map<String, String>> _catMeta = {
     'mayor': {
-      'title':      "City Mayor's Office",
+      'title':      "City - Admin Office",
       'department': 'City Administration Office',
     },
     'civil': {
@@ -129,45 +129,31 @@ class _ServiceCategoryDetailScreenState
               ? _buildErrorState()
               : _services.isEmpty
                   ? _buildEmptyState()
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isTabletOrLarger = constraints.maxWidth >= 600;
-                        final horizontalPadding = isTabletOrLarger ? 32.0 : 20.0;
-
-                        return Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 720),
-                            child: SingleChildScrollView(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: horizontalPadding,
-                                vertical: 32,
-                              ),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    'CHOOSE THE SPECIFIC...',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black
-                                          .withValues(alpha: 0.3),
-                                      letterSpacing: 2.0,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 32),
-                                  ..._services.map(
-                                      (s) => _buildOptionItem(
-                                          context,
-                                          s['name'] as String,
-                                          s['department'] as String,
-                                          s['categoryId'] as String)),
-                                  const SizedBox(height: 120),
-                                ],
-                              ),
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 32),
+                      child: Column(
+                        children: [
+                          Text(
+                            'CHOOSE THE SPECIFIC...',
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black
+                                  .withValues(alpha: 0.3),
+                              letterSpacing: 2.0,
                             ),
                           ),
-                        );
-                      },
+                          const SizedBox(height: 32),
+                          ..._services.map(
+                              (s) => _buildOptionItem(
+                                  context,
+                                  s['name'] as String,
+                                  s['department'] as String,
+                                  s['categoryId'] as String)),
+                          const SizedBox(height: 120),
+                        ],
+                      ),
                     ),
       bottomNavigationBar:
           const BottomNav(selectedIndex: 2),

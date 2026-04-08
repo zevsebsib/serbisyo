@@ -200,16 +200,11 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
 
   @override
   void initState() {
-  super.initState();
-
-  // Debug: i-check kung tama ang serviceName na natanggap
-  debugPrint('▶ serviceName received: "${widget.serviceName}"');
-
-  _requirements = _serviceRequirements[widget.serviceName?.trim()] ??
-      _defaultRequirements;
-
-  debugPrint('▶ Resolved ${_requirements.length} requirements');
-}
+    super.initState();
+    _requirements =
+        _serviceRequirements[widget.serviceName] ??
+            _defaultRequirements;
+  }
 
   String _generateTrackingId() {
     final now   = DateTime.now();

@@ -14,15 +14,21 @@ class AdminSettingsScreen extends StatefulWidget {
 
 class _AdminSettingsScreenState
     extends State<AdminSettingsScreen> {
-  bool   _loading = true;
-  int    _tab     = 0;
+  bool _loading = true;
+  int  _tab     = 0;
 
   // Profile
   Map<String, dynamic> _adminData = {};
-  final _nameCtrl   = TextEditingController();
-  final _phoneCtrl  = TextEditingController();
-  final _emailCtrl  = TextEditingController();
+  final _nameCtrl  = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   bool  _savingProfile = false;
+
+  // ── CHANGE 1: Removed _deptNameCtrl, _deptDescCtrl, _savingDept ──────────
+  // Department info is now view-only in the Profile tab.
+  // These controllers no longer exist.
+  String _departmentName        = '';
+  String _departmentDescription = '';
 
   // Password
   final _curPassCtrl  = TextEditingController();
@@ -31,27 +37,21 @@ class _AdminSettingsScreenState
   bool  _savingPass   = false;
   bool  _showCur = false, _showNew = false, _showConf = false;
 
-  // Department / branding
-  Map<String, dynamic> _deptData = {};
-  final _deptNameCtrl = TextEditingController();
-  final _deptDescCtrl = TextEditingController();
-  bool  _savingDept   = false;
-
   // Templates
   List<Map<String, dynamic>> _templates = [];
   bool _savingTemplates = false;
 
   // Preferences
-  bool _emailNotifs  = true;
-  bool _pushNotifs   = true;
-  bool _darkMode     = false;
-  String _language   = 'English';
+  bool   _emailNotifs = true;
+  bool   _pushNotifs  = true;
+  bool   _darkMode    = false;
+  String _language    = 'English';
 
+  // ── CHANGE 2: Removed 'Department' tab from the list ─────────────────────
   final _tabs = [
-    {'label': 'Profile',    'icon': Icons.person_rounded},
-    {'label': 'Department', 'icon': Icons.account_tree_rounded},
-    {'label': 'Templates',  'icon': Icons.message_rounded},
-    {'label': 'Preferences','icon': Icons.tune_rounded},
+    {'label': 'Profile',     'icon': Icons.person_rounded},
+    {'label': 'Templates',   'icon': Icons.message_rounded},
+    {'label': 'Preferences', 'icon': Icons.tune_rounded},
   ];
 
   @override
@@ -62,25 +62,25 @@ class _AdminSettingsScreenState
 
   @override
   void dispose() {
-    _nameCtrl.dispose();   _phoneCtrl.dispose();
-    _emailCtrl.dispose();  _curPassCtrl.dispose();
+    _nameCtrl.dispose();    _phoneCtrl.dispose();
+    _emailCtrl.dispose();   _curPassCtrl.dispose();
     _newPassCtrl.dispose(); _confPassCtrl.dispose();
-    _deptNameCtrl.dispose(); _deptDescCtrl.dispose();
+    _confPassCtrl.dispose();
     super.dispose();
   }
 
-  // ── Load ───────────────────────────────────────────────────────────────────
+  // ── Load ──────────────────────────────────────────────────────────────────
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
 
-      // Admin profile
       final adminDoc = await FirebaseFirestore.instance
           .collection('admin')
           .doc(uid)
           .get();
+
       if (adminDoc.exists) {
         _adminData = adminDoc.data() ?? {};
         _nameCtrl.text  = _adminData['fullName'] ?? '';
@@ -88,20 +88,18 @@ class _AdminSettingsScreenState
         _emailCtrl.text =
             FirebaseAuth.instance.currentUser?.email ?? '';
 
-        // Load department
-        final deptId =
-            _adminData['departmentId'] as String? ?? '';
+        // ── CHANGE 3: Load department as read-only strings (no editing) ──────
+        final deptId = _adminData['departmentId'] as String? ?? '';
         if (deptId.isNotEmpty) {
           final deptDoc = await FirebaseFirestore.instance
               .collection('departments')
               .doc(deptId)
               .get();
           if (deptDoc.exists) {
-            _deptData = deptDoc.data() ?? {};
-            _deptNameCtrl.text =
-                _deptData['name'] ?? '';
-            _deptDescCtrl.text =
-                _deptData['description'] ?? '';
+            _departmentName =
+                deptDoc.data()?['name'] as String? ?? '';
+            _departmentDescription =
+                deptDoc.data()?['description'] as String? ?? '';
           }
         }
       }
@@ -114,10 +112,10 @@ class _AdminSettingsScreenState
         _templates = _defaultTemplates();
       } else {
         _templates = tmplSnap.docs.map((d) => {
-          'id':      d.id,
-          'type':    d.data()['type'] ?? '',
-          'title':   d.data()['title'] ?? '',
-          'body':    d.data()['body'] ?? '',
+          'id':    d.id,
+          'type':  d.data()['type'] ?? '',
+          'title': d.data()['title'] ?? '',
+          'body':  d.data()['body'] ?? '',
           'titleCtrl': TextEditingController(
               text: d.data()['title'] ?? ''),
           'bodyCtrl':  TextEditingController(
@@ -163,12 +161,11 @@ class _AdminSettingsScreenState
     },
   ];
 
-  // ── Save profile ───────────────────────────────────────────────────────────
+  // ── Save profile ──────────────────────────────────────────────────────────
   Future<void> _saveProfile() async {
     setState(() => _savingProfile = true);
     try {
-      final uid =
-          FirebaseAuth.instance.currentUser?.uid ?? '';
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
       await FirebaseFirestore.instance
           .collection('admin')
           .doc(uid)
@@ -184,16 +181,14 @@ class _AdminSettingsScreenState
     if (mounted) setState(() => _savingProfile = false);
   }
 
-  // ── Change password ────────────────────────────────────────────────────────
+  // ── Change password ───────────────────────────────────────────────────────
   Future<void> _changePassword() async {
     if (_newPassCtrl.text != _confPassCtrl.text) {
-      _showSnack(
-          'Passwords do not match', AppColors.warning);
+      _showSnack('Passwords do not match', AppColors.warning);
       return;
     }
     if (_newPassCtrl.text.length < 6) {
-      _showSnack(
-          'Password must be at least 6 characters',
+      _showSnack('Password must be at least 6 characters',
           AppColors.warning);
       return;
     }
@@ -211,49 +206,20 @@ class _AdminSettingsScreenState
       _confPassCtrl.clear();
       _showSnack('Password changed ✓', AppColors.success);
     } on FirebaseAuthException catch (e) {
-      _showSnack(
-          e.message ?? 'Failed', AppColors.danger);
+      _showSnack(e.message ?? 'Failed', AppColors.danger);
     }
     if (mounted) setState(() => _savingPass = false);
   }
 
-  // ── Save department ────────────────────────────────────────────────────────
-  Future<void> _saveDepartment() async {
-    setState(() => _savingDept = true);
-    try {
-      final deptId = _adminData['departmentId']
-              as String? ??
-          '';
-      if (deptId.isEmpty) {
-        _showSnack(
-            'No department assigned to your account',
-            AppColors.warning);
-        setState(() => _savingDept = false);
-        return;
-      }
-      await FirebaseFirestore.instance
-          .collection('departments')
-          .doc(deptId)
-          .update({
-        'name':        _deptNameCtrl.text.trim(),
-        'description': _deptDescCtrl.text.trim(),
-        'updatedAt':   FieldValue.serverTimestamp(),
-      });
-      _showSnack(
-          'Department updated ✓', AppColors.success);
-    } catch (e) {
-      _showSnack('Failed: $e', AppColors.danger);
-    }
-    if (mounted) setState(() => _savingDept = false);
-  }
+  // ── CHANGE 4: _saveDepartment() method removed ────────────────────────────
 
-  // ── Save templates ─────────────────────────────────────────────────────────
+  // ── Save templates ────────────────────────────────────────────────────────
   Future<void> _saveTemplates() async {
     setState(() => _savingTemplates = true);
     try {
       final batch = FirebaseFirestore.instance.batch();
       for (final t in _templates) {
-        final id = t['id'] as String;
+        final id  = t['id'] as String;
         final ref = id.isEmpty
             ? FirebaseFirestore.instance
                 .collection('notification_templates')
@@ -263,20 +229,21 @@ class _AdminSettingsScreenState
                 .doc(id);
         batch.set(ref, {
           'type':  t['type'],
-          'title': (t['titleCtrl'] as TextEditingController).text.trim(),
-          'body':  (t['bodyCtrl']  as TextEditingController).text.trim(),
+          'title': (t['titleCtrl'] as TextEditingController)
+              .text.trim(),
+          'body':  (t['bodyCtrl'] as TextEditingController)
+              .text.trim(),
         });
       }
       await batch.commit();
-      _showSnack(
-          'Templates saved ✓', AppColors.success);
+      _showSnack('Templates saved ✓', AppColors.success);
     } catch (e) {
       _showSnack('Failed: $e', AppColors.danger);
     }
     if (mounted) setState(() => _savingTemplates = false);
   }
 
-  // ── BUILD ──────────────────────────────────────────────────────────────────
+  // ── BUILD ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -292,8 +259,7 @@ class _AdminSettingsScreenState
                     child: CircularProgressIndicator(
                         color: AppColors.primary))
                 : Row(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildSidebar(),
                       const SizedBox(width: 24),
@@ -318,14 +284,16 @@ class _AdminSettingsScreenState
               letterSpacing: -0.5,
             )),
         const SizedBox(height: 4),
-        Text('Manage your account, department and system preferences',
-            style: GoogleFonts.inter(
-                fontSize: 13, color: AppColors.muted)),
+        Text(
+          'Manage your account and system preferences',
+          style: GoogleFonts.inter(
+              fontSize: 13, color: AppColors.muted),
+        ),
       ],
     );
   }
 
-  // ── Sidebar nav ────────────────────────────────────────────────────────────
+  // ── Sidebar nav ───────────────────────────────────────────────────────────
   Widget _buildSidebar() {
     return Container(
       width: 220,
@@ -350,20 +318,15 @@ class _AdminSettingsScreenState
             child: Row(children: [
               Container(
                 width: 44, height: 44,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFFF9200),
-                      Color(0xFFFF5E00)
-                    ],
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFF9200), Color(0xFFFF5E00)],
                   ),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text(
-                    _initials(_adminData['fullName']
-                            as String? ??
-                        'A'),
+                    _initials(_adminData['fullName'] as String? ?? 'A'),
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -375,12 +338,10 @@ class _AdminSettingsScreenState
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _adminData['fullName'] as String? ??
-                          'Admin',
+                      _adminData['fullName'] as String? ?? 'Admin',
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
                         fontSize: 13,
@@ -409,21 +370,17 @@ class _AdminSettingsScreenState
             final t   = entry.value;
             final sel = _tab == i;
             return GestureDetector(
-              onTap: () =>
-                  setState(() => _tab = i),
+              onTap: () => setState(() => _tab = i),
               child: AnimatedContainer(
-                duration:
-                    const Duration(milliseconds: 150),
+                duration: const Duration(milliseconds: 150),
                 margin: const EdgeInsets.only(bottom: 4),
                 padding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: sel
-                      ? AppColors.primary
-                          .withValues(alpha: 0.08)
+                      ? AppColors.primary.withValues(alpha: 0.08)
                       : Colors.transparent,
-                  borderRadius:
-                      BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(children: [
                   Icon(t['icon'] as IconData,
@@ -451,17 +408,18 @@ class _AdminSettingsScreenState
     );
   }
 
-  // ── Tab body ───────────────────────────────────────────────────────────────
+  // ── Tab body ──────────────────────────────────────────────────────────────
   Widget _buildTabBody() {
+    // ── CHANGE 5: Tab index shifted — Department tab removed ──────────────
+    // 0 = Profile, 1 = Templates, 2 = Preferences
     switch (_tab) {
       case 0:  return _buildProfileTab();
-      case 1:  return _buildDepartmentTab();
-      case 2:  return _buildTemplatesTab();
+      case 1:  return _buildTemplatesTab();
       default: return _buildPreferencesTab();
     }
   }
 
-  // ── Profile tab ────────────────────────────────────────────────────────────
+  // ── Profile tab ───────────────────────────────────────────────────────────
   Widget _buildProfileTab() {
     return SingleChildScrollView(
       child: Column(
@@ -472,25 +430,22 @@ class _AdminSettingsScreenState
             child: Column(children: [
               Row(children: [
                 Expanded(child: _buildField(
-                  'Full Name', _nameCtrl,
-                  'e.g. Juan dela Cruz',
-                )),
+                    'Full Name', _nameCtrl,
+                    'e.g. Juan dela Cruz')),
                 const SizedBox(width: 16),
                 Expanded(child: _buildField(
-                  'Phone', _phoneCtrl,
-                  'e.g. 09XXXXXXXXX',
-                )),
+                    'Phone', _phoneCtrl,
+                    'e.g. 09XXXXXXXXX')),
               ]),
               const SizedBox(height: 14),
-            _buildField(
-            'Email Address', _emailCtrl,
-            'Email cannot be changed',
-            enabled: false,
-            ),
+              _buildField(
+                'Email Address', _emailCtrl,
+                'Email cannot be changed',
+                enabled: false,
+              ),
               const SizedBox(height: 20),
               Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   _saveBtn(
                     label: 'Save Profile',
@@ -502,6 +457,53 @@ class _AdminSettingsScreenState
             ]),
           ),
           const SizedBox(height: 20),
+
+          // ── CHANGE 6: Department info — view-only section in Profile ────────
+          if (_departmentName.isNotEmpty)
+            _sectionCard(
+              title: 'Department',
+              icon:  Icons.account_tree_rounded,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Info banner
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary
+                          .withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppColors.primary
+                            .withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.info_outline_rounded,
+                          color: AppColors.primary, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Department information is managed by '
+                          'the system administrator.',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 16),
+                  _infoRow('Department', _departmentName),
+                  if (_departmentDescription.isNotEmpty)
+                    _infoRow('Description',
+                        _departmentDescription),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 20),
           _sectionCard(
             title: 'Change Password',
             icon:  Icons.lock_rounded,
@@ -510,8 +512,7 @@ class _AdminSettingsScreenState
                 'Current Password',
                 _curPassCtrl,
                 _showCur,
-                () => setState(
-                    () => _showCur = !_showCur),
+                () => setState(() => _showCur = !_showCur),
               ),
               const SizedBox(height: 14),
               Row(children: [
@@ -519,22 +520,19 @@ class _AdminSettingsScreenState
                   'New Password',
                   _newPassCtrl,
                   _showNew,
-                  () => setState(
-                      () => _showNew = !_showNew),
+                  () => setState(() => _showNew = !_showNew),
                 )),
                 const SizedBox(width: 16),
                 Expanded(child: _buildPassField(
                   'Confirm New Password',
                   _confPassCtrl,
                   _showConf,
-                  () => setState(
-                      () => _showConf = !_showConf),
+                  () => setState(() => _showConf = !_showConf),
                 )),
               ]),
               const SizedBox(height: 20),
               Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   _saveBtn(
                     label: 'Change Password',
@@ -551,67 +549,9 @@ class _AdminSettingsScreenState
     );
   }
 
-  // ── Department tab ─────────────────────────────────────────────────────────
-  Widget _buildDepartmentTab() {
-    return SingleChildScrollView(
-      child: _sectionCard(
-        title: 'Department Information',
-        icon:  Icons.account_tree_rounded,
-        child: Column(children: [
-          _buildField(
-              'Department Name', _deptNameCtrl,
-              'e.g. Civil Registrar'),
-          const SizedBox(height: 14),
-          _buildField(
-            'Description', _deptDescCtrl,
-            'Brief description of this department...',
-            maxLines: 4,
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.primary
-                  .withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.primary
-                    .withValues(alpha: 0.15),
-              ),
-            ),
-            child: Row(children: [
-              Icon(Icons.info_outline_rounded,
-                  color: AppColors.primary, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Changes here will update the department\'s '
-                  'public-facing information visible to citizens.',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              _saveBtn(
-                label: 'Save Department',
-                loading: _savingDept,
-                onTap: _saveDepartment,
-              ),
-            ],
-          ),
-        ]),
-      ),
-    );
-  }
+  // ── CHANGE 7: _buildDepartmentTab() method removed ────────────────────────
 
-  // ── Templates tab ──────────────────────────────────────────────────────────
+  // ── Templates tab ─────────────────────────────────────────────────────────
   Widget _buildTemplatesTab() {
     final typeColors = <String, Color>{
       'status_update': const Color(0xFF3B82F6),
@@ -632,18 +572,15 @@ class _AdminSettingsScreenState
             'Use {{trackingId}}, {{status}}, {{documents}} as dynamic placeholders.',
         child: Column(children: [
           ..._templates.asMap().entries.map((entry) {
-            final i = entry.key;
-            final t = entry.value;
+            final i     = entry.key;
+            final t     = entry.value;
             final type  = t['type'] as String;
-            final color = typeColors[type] ??
-                AppColors.primary;
-            final label =
-                typeLabels[type] ?? type;
+            final color = typeColors[type] ?? AppColors.primary;
+            final label = typeLabels[type] ?? type;
 
             return Container(
               margin: EdgeInsets.only(
-                  bottom: i < _templates.length - 1
-                      ? 20 : 0),
+                  bottom: i < _templates.length - 1 ? 20 : 0),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: const Color(0xFFF7F8FC),
@@ -652,18 +589,14 @@ class _AdminSettingsScreenState
                     color: const Color(0xFFEEEEEE)),
               ),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: color
-                            .withValues(alpha: 0.10),
+                        color: color.withValues(alpha: 0.10),
                         borderRadius:
                             BorderRadius.circular(20),
                       ),
@@ -676,28 +609,21 @@ class _AdminSettingsScreenState
                     ),
                   ]),
                   const SizedBox(height: 12),
-                  _buildField(
-                    'Title',
-                    t['titleCtrl']
-                        as TextEditingController,
-                    '',
-                  ),
+                  _buildField('Title',
+                      t['titleCtrl'] as TextEditingController,
+                      ''),
                   const SizedBox(height: 10),
-                  _buildField(
-                    'Message Body',
-                    t['bodyCtrl']
-                        as TextEditingController,
-                    '',
-                    maxLines: 3,
-                  ),
+                  _buildField('Message Body',
+                      t['bodyCtrl'] as TextEditingController,
+                      '',
+                      maxLines: 3),
                 ],
               ),
             );
           }),
           const SizedBox(height: 20),
           Row(
-            mainAxisAlignment:
-                MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
               _saveBtn(
                 label: 'Save Templates',
@@ -711,7 +637,7 @@ class _AdminSettingsScreenState
     );
   }
 
-  // ── Preferences tab ────────────────────────────────────────────────────────
+  // ── Preferences tab ───────────────────────────────────────────────────────
   Widget _buildPreferencesTab() {
     return SingleChildScrollView(
       child: Column(children: [
@@ -749,12 +675,10 @@ class _AdminSettingsScreenState
             ),
             const Divider(
                 color: Color(0xFFF0F0F0), height: 24),
-            // Language
             Row(children: [
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Language',
                         style: GoogleFonts.inter(
@@ -763,8 +687,7 @@ class _AdminSettingsScreenState
                           color: const Color(0xFF222222),
                         )),
                     const SizedBox(height: 2),
-                    Text(
-                        'Interface language',
+                    Text('Interface language',
                         style: GoogleFonts.inter(
                             fontSize: 12,
                             color: AppColors.muted)),
@@ -776,8 +699,7 @@ class _AdminSettingsScreenState
                     horizontal: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF7F8FC),
-                  borderRadius:
-                      BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                       color: const Color(0xFFEEEEEE)),
                 ),
@@ -785,25 +707,22 @@ class _AdminSettingsScreenState
                   child: DropdownButton<String>(
                     value: _language,
                     icon: const Icon(
-                        Icons
-                            .keyboard_arrow_down_rounded,
+                        Icons.keyboard_arrow_down_rounded,
                         size: 16,
                         color: AppColors.muted),
                     style: GoogleFonts.inter(
                         fontSize: 13,
-                        color:
-                            const Color(0xFF333333)),
+                        color: const Color(0xFF333333)),
                     items: ['English', 'Filipino']
-                        .map((l) =>
-                            DropdownMenuItem<String>(
+                        .map((l) => DropdownMenuItem<String>(
                               value: l,
                               child: Text(l,
                                   style: GoogleFonts.inter(
                                       fontSize: 13)),
                             ))
                         .toList(),
-                    onChanged: (v) => setState(
-                        () => _language = v!),
+                    onChanged: (v) =>
+                        setState(() => _language = v!),
                   ),
                 ),
               ),
@@ -815,11 +734,9 @@ class _AdminSettingsScreenState
           title: 'System Info',
           icon:  Icons.info_rounded,
           child: Column(children: [
-            _infoRow('App Name',
-                'SerbisyoAlisto Admin'),
+            _infoRow('App Name', 'SerbisyoAlisto Admin'),
             _infoRow('Version', '1.0.0'),
-            _infoRow(
-                'City', 'City of Laoag, Ilocos Norte'),
+            _infoRow('City', 'City of Laoag, Ilocos Norte'),
             _infoRow('Platform', 'Web (Flutter)'),
           ]),
         ),
@@ -827,7 +744,7 @@ class _AdminSettingsScreenState
     );
   }
 
-  // ── Shared widgets ─────────────────────────────────────────────────────────
+  // ── Shared widgets ────────────────────────────────────────────────────────
   Widget _sectionCard({
     required String title,
     required IconData icon,
@@ -854,8 +771,7 @@ class _AdminSettingsScreenState
             Container(
               width: 36, height: 36,
               decoration: BoxDecoration(
-                color: AppColors.primary
-                    .withValues(alpha: 0.10),
+                color: AppColors.primary.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon,
@@ -864,8 +780,7 @@ class _AdminSettingsScreenState
             const SizedBox(width: 12),
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
                       style: GoogleFonts.inter(
@@ -895,8 +810,8 @@ class _AdminSettingsScreenState
     String label,
     TextEditingController ctrl,
     String hint, {
-    bool enabled = true,
-    int maxLines = 1,
+    bool enabled  = true,
+    int  maxLines = 1,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -910,14 +825,14 @@ class _AdminSettingsScreenState
         const SizedBox(height: 8),
         TextFormField(
           controller: ctrl,
-          enabled: enabled,
-          maxLines: maxLines,
+          enabled:    enabled,
+          maxLines:   maxLines,
           style: GoogleFonts.inter(fontSize: 13),
           decoration: InputDecoration(
-            hintText: hint,
+            hintText:  hint,
             hintStyle: GoogleFonts.inter(
                 color: AppColors.muted, fontSize: 12),
-            filled: true,
+            filled:     true,
             fillColor: enabled
                 ? const Color(0xFFF7F8FC)
                 : const Color(0xFFEEEEEE),
@@ -925,13 +840,13 @@ class _AdminSettingsScreenState
                 horizontal: 14, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(
-                  color: Color(0xFFEEEEEE)),
+              borderSide:
+                  const BorderSide(color: Color(0xFFEEEEEE)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(
-                  color: Color(0xFFEEEEEE)),
+              borderSide:
+                  const BorderSide(color: Color(0xFFEEEEEE)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -940,8 +855,8 @@ class _AdminSettingsScreenState
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(
-                  color: Color(0xFFEEEEEE)),
+              borderSide:
+                  const BorderSide(color: Color(0xFFEEEEEE)),
             ),
           ),
         ),
@@ -966,11 +881,11 @@ class _AdminSettingsScreenState
             )),
         const SizedBox(height: 8),
         TextFormField(
-          controller: ctrl,
+          controller:   ctrl,
           obscureText: !show,
           style: GoogleFonts.inter(fontSize: 13),
           decoration: InputDecoration(
-            filled: true,
+            filled:    true,
             fillColor: const Color(0xFFF7F8FC),
             contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14, vertical: 12),
@@ -986,13 +901,13 @@ class _AdminSettingsScreenState
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(
-                  color: Color(0xFFEEEEEE)),
+              borderSide:
+                  const BorderSide(color: Color(0xFFEEEEEE)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(
-                  color: Color(0xFFEEEEEE)),
+              borderSide:
+                  const BorderSide(color: Color(0xFFEEEEEE)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -1028,18 +943,16 @@ class _AdminSettingsScreenState
             const SizedBox(height: 2),
             Text(subtitle,
                 style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AppColors.muted)),
+                    fontSize: 12, color: AppColors.muted)),
           ],
         ),
       ),
-      Switch
-      (
-          value: value,
-          onChanged: disabled ? null : onChanged,
-          activeThumbColor: AppColors.primary,
-          activeTrackColor:
-              AppColors.primary.withValues(alpha: 0.40),
+      Switch(
+        value:            value,
+        onChanged:        disabled ? null : onChanged,
+        activeThumbColor: AppColors.primary,
+        activeTrackColor:
+            AppColors.primary.withValues(alpha: 0.40),
       ),
     ]);
   }
@@ -1081,8 +994,7 @@ class _AdminSettingsScreenState
           ? const SizedBox(
               width: 14, height: 14,
               child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white))
+                  strokeWidth: 2, color: Colors.white))
           : const Icon(Icons.save_rounded, size: 15),
       label: Text(
           loading ? 'Saving...' : label,
@@ -1093,8 +1005,7 @@ class _AdminSettingsScreenState
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
-        disabledBackgroundColor:
-            color.withValues(alpha: 0.5),
+        disabledBackgroundColor: color.withValues(alpha: 0.5),
         elevation: 0,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10)),
@@ -1104,7 +1015,7 @@ class _AdminSettingsScreenState
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
   void _showSnack(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg,
@@ -1122,11 +1033,8 @@ class _AdminSettingsScreenState
   String _initials(String name) {
     final parts = name.trim().split(' ');
     if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'
-          .toUpperCase();
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return name.isNotEmpty
-        ? name[0].toUpperCase()
-        : 'A';
+    return name.isNotEmpty ? name[0].toUpperCase() : 'A';
   }
 }

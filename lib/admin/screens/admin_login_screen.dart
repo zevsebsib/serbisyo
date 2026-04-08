@@ -450,7 +450,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Welcome back',
+        Text('Welcome!',
             style: GoogleFonts.dmSans(
               fontSize: 26,
               fontWeight: FontWeight.w700,

@@ -25,58 +25,75 @@ service cloud.firestore {
 
     // ── Admin collection ───────────────────────────────────────────
     match /admin/{adminId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();        // register
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn();
       allow update: if isSignedIn() &&
         (request.auth.uid == adminId || isSuperAdmin());
       allow delete: if isSuperAdmin();
     }
 
-    // ── Users (citizens) ───────────────────────────────────────────
+    // ── Users (citizens) ──────────────────────────────────────────
     match /users/{userId} {
-      allow read: if isSignedIn() &&
+      allow read:   if isSignedIn() &&
         (request.auth.uid == userId || isAnyAdmin());
-      allow write: if isSignedIn() &&
-        (request.auth.uid == userId || isSuperAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() &&
+        (request.auth.uid == userId || isAnyAdmin());
+      allow delete: if isSuperAdmin();
     }
 
-    // ── Requests ───────────────────────────────────────────────────
+    // ── Requests ──────────────────────────────────────────────────
     match /requests/{requestId} {
-      // superadmin sees all, staff sees only assigned
       allow read: if isSignedIn() && (
-        request.auth.uid == resource.data.userId ||
+        resource.data.userId == request.auth.uid ||
         isSuperAdmin() ||
         (isAdminStaff() && resource.data.assignedTo == request.auth.uid)
       );
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
-        request.auth.uid == resource.data.userId ||
+        resource.data.userId == request.auth.uid ||
         isAnyAdmin()
       );
       allow delete: if isSuperAdmin();
     }
 
-    // ── Notifications ──────────────────────────────────────────────
+    // ── Notifications ─────────────────────────────────────────────
     match /notifications/{userId}/items/{notifId} {
-      allow read, write: if isSignedIn() &&
+      allow read:  if isSignedIn() &&
+        (request.auth.uid == userId || isAnyAdmin());
+      allow write: if isSignedIn() &&
         (request.auth.uid == userId || isAnyAdmin());
     }
 
-    // ── Departments ────────────────────────────────────────────────
+    // ── Departments ───────────────────────────────────────────────
     match /departments/{deptId} {
-      allow read: if isAnyAdmin();
+      allow read:  if isSignedIn();
       allow write: if isSuperAdmin();
     }
 
-    // ── Categories ─────────────────────────────────────────────────
+    // ── Services (NEW) ────────────────────────────────────────────
+    match /services/{serviceId} {
+      allow read:   if isSignedIn();
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Notification templates ────────────────────────────────────
+    match /notification_templates/{templateId} {
+      allow read:  if isAnyAdmin();
+      allow write: if isSuperAdmin();
+    }
+
+    // ── Categories ────────────────────────────────────────────────
     match /categories/{categoryId} {
-      allow read: if isSignedIn();
+      allow read:  if isSignedIn();
       allow write: if isSuperAdmin();
     }
 
-    // ── Announcements ──────────────────────────────────────────────
+    // ── Announcements ─────────────────────────────────────────────
     match /announcements/{announcementId} {
-      allow read: if isSignedIn();
+      allow read:  if isSignedIn();
       allow write: if isAnyAdmin();
     }
   }

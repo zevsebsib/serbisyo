@@ -94,7 +94,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
             'fullName':      data['fullName'] ?? 'Unknown',
             'email':         data['email'] ?? '',
             'phone':         data['phone'] ?? '',
-            'department':    deptNames[deptId] ?? 'ΓÇö',
+            'department':    deptNames[deptId] ?? '—',
             'departmentId':  deptId,
             'isActive':      data['isActive'] ?? false,
             'createdAt':     data['createdAt'],
@@ -197,7 +197,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                   )),
               const SizedBox(height: 4),
               Text(
-                '${_activeStaff.length} active ┬╖ '
+                '${_activeStaff.length} active · '
                 '${_pendingStaff.length} pending approval',
                 style: GoogleFonts.inter(
                     fontSize: 13, color: AppColors.muted),
@@ -221,9 +221,9 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
         ),
         const SizedBox(width: 10),
 
-        // ΓöÇΓöÇ FIX: "Add Staff" now shows an informational dialog ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+        // ── FIX: "Add Staff" now shows an informational dialog ──────────────
         // Previously this created a Firestore record with isActive: true but
-        // no Firebase Auth account ΓÇö resulting in a broken account that could
+        // no Firebase Auth account — resulting in a broken account that could
         // never log in. Staff must register themselves via the login page and
         // wait for superadmin approval. Direct creation is removed.
         ElevatedButton.icon(
@@ -248,7 +248,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     );
   }
 
-  // ΓöÇΓöÇ FIX: Replaces the broken _addStaff() direct-create dialog ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── FIX: Replaces the broken _addStaff() direct-create dialog ─────────────
   // Explains the correct registration flow to superadmins so they don't
   // accidentally create broken accounts.
   void _showAddStaffInfoDialog() {
@@ -972,7 +972,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          'Showing ${_currentPage * _pageSize + 1}ΓÇô'
+          'Showing ${_currentPage * _pageSize + 1}–'
           '${(_currentPage * _pageSize + _paged.length)} '
           'of ${_filteredStaff.length}',
           style: GoogleFonts.inter(
@@ -1056,7 +1056,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     );
   }
 
-  // ΓöÇΓöÇ Staff detail dialog ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Staff detail dialog ────────────────────────────────────────────────────
   void _showStaffDetailDialog(
       Map<String, dynamic> s) async {
     List<Map<String, dynamic>> requests = [];
@@ -1086,23 +1086,19 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
 
     showDialog(
       context: context,
-      builder: (ctx) {
-        final screenWidth = MediaQuery.of(ctx).size.width;
-        final isNarrow = screenWidth < 940;
-        final dialogMaxWidth = isNarrow ? screenWidth - 32 : 680.0;
-
-        return Dialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
-          insetPadding: EdgeInsets.symmetric(
-              horizontal: isNarrow ? 16 : 40, vertical: 24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: dialogMaxWidth,
-              maxHeight:
-                  MediaQuery.of(context).size.height * 0.85,
-            ),
-            child: Column(
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(
+            horizontal: 40, vertical: 24),
+        child: Container(
+          width: 680,
+          constraints: BoxConstraints(
+            maxHeight:
+                MediaQuery.of(context).size.height *
+                    0.85,
+          ),
+          child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(24),
@@ -1196,81 +1192,66 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                     crossAxisAlignment:
                         CrossAxisAlignment.start,
                     children: [
-                        if (isNarrow)
-                          Column(
-                            children: [
-                              _infoCard(
-                                'Staff Information',
-                                [
-                                  _detailRow('Full Name', s['fullName'] as String),
-                                  _detailRow('Email', s['email'] as String),
-                                  _detailRow(
-                                    'Phone',
-                                    (s['phone'] as String?)?.isNotEmpty == true
-                                        ? s['phone'] as String
-                                        : '—',
-                                  ),
-                                  _detailRow('Department', s['department'] as String),
-                                  _detailRow('Date Joined', _fmtTs(s['createdAt'] as Timestamp?)),
-                                  _detailRow('Status', isActive ? 'Active' : 'Pending Approval'),
+                      Row(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _infoCard(
+                              'Staff Information',
+                              [
+                                _detailRow('Full Name',
+                                    s['fullName'] as String),
+                                _detailRow('Email',
+                                    s['email'] as String),
+                                _detailRow(
+                                  'Phone',
+                                  (s['phone'] as String?)
+                                              ?.isNotEmpty ==
+                                          true
+                                      ? s['phone'] as String
+                                      : '—',
+                                ),
+                                _detailRow('Department',
+                                    s['department'] as String),
+                                _detailRow('Date Joined',
+                                    _fmtTs(s['createdAt']
+                                        as Timestamp?)),
+                                _detailRow('Status',
+                                    isActive
+                                        ? 'Active'
+                                        : 'Pending Approval'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _infoCard(
+                              'Request Summary',
+                              [],
+                              child: Column(
+                                children: [
+                                  _summaryItem('Total',
+                                      requests.length,
+                                      const Color(0xFF5C6BC0)),
+                                  _summaryItem('Pending',
+                                      requests.where((r) => r['status'] == 'pending').length,
+                                      const Color(0xFFF59E0B)),
+                                  _summaryItem('In Progress',
+                                      requests.where((r) => r['status'] == 'in_progress').length,
+                                      const Color(0xFF3B82F6)),
+                                  _summaryItem('Completed',
+                                      requests.where((r) => r['status'] == 'completed').length,
+                                      const Color(0xFF10B981)),
+                                  _summaryItem('Rejected',
+                                      requests.where((r) => r['status'] == 'rejected').length,
+                                      const Color(0xFFEF4444)),
                                 ],
                               ),
-                              const SizedBox(height: 16),
-                              _infoCard(
-                                'Request Summary',
-                                [],
-                                child: Column(
-                                  children: [
-                                    _summaryItem('Total', requests.length, const Color(0xFF5C6BC0)),
-                                    _summaryItem('Pending', requests.where((r) => r['status'] == 'pending').length, const Color(0xFFF59E0B)),
-                                    _summaryItem('In Progress', requests.where((r) => r['status'] == 'in_progress').length, const Color(0xFF3B82F6)),
-                                    _summaryItem('Completed', requests.where((r) => r['status'] == 'completed').length, const Color(0xFF10B981)),
-                                    _summaryItem('Rejected', requests.where((r) => r['status'] == 'rejected').length, const Color(0xFFEF4444)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          )
-                        else
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: _infoCard(
-                                  'Staff Information',
-                                  [
-                                    _detailRow('Full Name', s['fullName'] as String),
-                                    _detailRow('Email', s['email'] as String),
-                                    _detailRow(
-                                      'Phone',
-                                      (s['phone'] as String?)?.isNotEmpty == true
-                                          ? s['phone'] as String
-                                          : '—',
-                                    ),
-                                    _detailRow('Department', s['department'] as String),
-                                    _detailRow('Date Joined', _fmtTs(s['createdAt'] as Timestamp?)),
-                                    _detailRow('Status', isActive ? 'Active' : 'Pending Approval'),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: _infoCard(
-                                  'Request Summary',
-                                  [],
-                                  child: Column(
-                                    children: [
-                                      _summaryItem('Total', requests.length, const Color(0xFF5C6BC0)),
-                                      _summaryItem('Pending', requests.where((r) => r['status'] == 'pending').length, const Color(0xFFF59E0B)),
-                                      _summaryItem('In Progress', requests.where((r) => r['status'] == 'in_progress').length, const Color(0xFF3B82F6)),
-                                      _summaryItem('Completed', requests.where((r) => r['status'] == 'completed').length, const Color(0xFF10B981)),
-                                      _summaryItem('Rejected', requests.where((r) => r['status'] == 'rejected').length, const Color(0xFFEF4444)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
+                        ],
+                      ),
                       const SizedBox(height: 20),
                       _infoCard(
                         'Assigned Requests',
@@ -1312,98 +1293,95 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                   ),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment:
+                      MainAxisAlignment.end,
                   children: [
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      alignment: WrapAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                                color: Color(0xFFEEEEEE)),
-                            shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
-                          ),
-                          child: Text('Close',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.muted,
-                              )),
+                    OutlinedButton(
+                      onPressed: () =>
+                          Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                            color: Color(0xFFEEEEEE)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 10),
+                      ),
+                      child: Text('Close',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.muted,
+                          )),
+                    ),
+                    if (!isActive) ...[
+                      const SizedBox(width: 10),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _approveAccess(
+                              s['uid'] as String,
+                              s['fullName'] as String);
+                        },
+                        icon: const Icon(
+                            Icons.check_circle_rounded,
+                            size: 15),
+                        label: Text('Approve Access',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            )),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              const Color(0xFF10B981),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(10)),
+                          padding:
+                              const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 10),
                         ),
-                        if (!isActive)
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              _approveAccess(
-                                  s['uid'] as String,
-                                  s['fullName'] as String);
-                            },
-                            icon: const Icon(
-                                Icons.check_circle_rounded,
-                                size: 15),
-                            label: Text('Approve Access',
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                )),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color(0xFF10B981),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(10)),
-                              padding:
-                                  const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 10),
-                            ),
-                          ),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            _showEditDeptDialog(s);
-                          },
-                          icon: const Icon(Icons.edit_rounded,
-                              size: 15),
-                          label: Text('Edit Department',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              )),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
-                          ),
-                        ),
-                      ],
+                      ),
+                    ],
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showEditDeptDialog(s);
+                      },
+                      icon: const Icon(Icons.edit_rounded,
+                          size: 15),
+                      label: Text('Edit Department',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          )),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 10),
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  // ΓöÇΓöÇ Edit Department dialog (replaces full edit dialog) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Edit Department dialog (replaces full edit dialog) ─────────────────────
   void _showEditDeptDialog(Map<String, dynamic> s) {
     String? selectedDept =
         (s['departmentId'] as String?)?.isNotEmpty == true
@@ -1413,21 +1391,15 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setInner) {
-          final screenWidth = MediaQuery.of(ctx).size.width;
-          final isNarrow = screenWidth < 600;
-
-          return AlertDialog(
+        builder: (ctx, setInner) => AlertDialog(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16)),
           title: Text('Assign Department',
               style: GoogleFonts.inter(
                   fontWeight: FontWeight.w700,
                   fontSize: 16)),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: isNarrow ? screenWidth - 48 : 360,
-            ),
+          content: SizedBox(
+            width: 360,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment:
@@ -1490,44 +1462,37 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
             ),
           ),
           actions: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text('Cancel',
-                      style: GoogleFonts.inter(
-                          color: AppColors.muted)),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await _updateStaffDept(
-                        s['uid'] as String, selectedDept);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(8)),
-                  ),
-                  child: Text('Save',
-                      style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600)),
-                ),
-              ],
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel',
+                  style: GoogleFonts.inter(
+                      color: AppColors.muted)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _updateStaffDept(
+                    s['uid'] as String, selectedDept);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(8)),
+              ),
+              child: Text('Save',
+                  style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600)),
             ),
           ],
-          );
-        },
+        ),
       ),
     );
   }
 
-  // ΓöÇΓöÇ Firestore actions ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Firestore actions ──────────────────────────────────────────────────────
   Future<void> _updateStaffDept(
       String uid, String? deptId) async {
     try {
@@ -1547,7 +1512,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
         'updatedAt':    FieldValue.serverTimestamp(),
       });
       if (mounted) {
-        _showSnack('Department updated Γ£ô',
+        _showSnack('Department updated ✓',
             AppColors.success);
         _loadData();
       }
@@ -1570,7 +1535,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
       });
       if (mounted) {
         _showSnack(
-            '$name\'s access approved Γ£ô',
+            '$name\'s access approved ✓',
             AppColors.success);
         _loadData();
       }
@@ -1592,7 +1557,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
         _showSnack(
           current
               ? 'Account deactivated'
-              : 'Account activated Γ£ô',
+              : 'Account activated ✓',
           current
               ? AppColors.warning
               : AppColors.success,
@@ -1685,7 +1650,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     }
   }
 
-  // ΓöÇΓöÇ Shared widgets ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Shared widgets ─────────────────────────────────────────────────────────
   Widget _infoCard(String title, List<Widget> rows,
       {Widget? child}) {
     return Container(
@@ -1889,7 +1854,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
   }
 
   String _fmtTs(Timestamp? ts) {
-    if (ts == null) return 'ΓÇö';
+    if (ts == null) return '—';
     final d = ts.toDate();
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

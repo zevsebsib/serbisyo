@@ -252,11 +252,15 @@ class _RequestTrackingScreenState
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          _formatDate(createdAt),
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: AppColors.muted,
+                        Flexible(
+                          child: Text(
+                            _formatDate(createdAt),
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              color: AppColors.muted,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -408,6 +412,9 @@ class _RequestTrackingScreenState
                           Colors.black.withValues(alpha: 0.4),
                       letterSpacing: 2.0,
                     ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 16),
 
@@ -485,6 +492,9 @@ class _RequestTrackingScreenState
                       color: Colors.black,
                       letterSpacing: 1.0,
                     ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
 
                   // Status badge
@@ -863,67 +873,79 @@ class _RequestTrackingScreenState
                               padding: const EdgeInsets.only(
                                   top: 8, bottom: 32),
                               child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
                                 children: [
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        step['label'] as String,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          fontWeight:
-                                              FontWeight.w900,
-                                          color: stepState ==
-                                                  'pending'
-                                              ? Colors.black
-                                                  .withValues(
-                                                      alpha: 0.2)
-                                              : Colors.black,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          step['label'] as String,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            fontWeight:
+                                                FontWeight.w900,
+                                            color: stepState ==
+                                                    'pending'
+                                                ? Colors.black
+                                                    .withValues(
+                                                        alpha: 0.2)
+                                                : Colors.black,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                      ),
-                                      if (date.isNotEmpty)
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets
-                                                  .only(top: 4),
-                                          child: Text(
-                                            date,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 10,
-                                              fontWeight:
-                                                  FontWeight.bold,
-                                              color: Colors.black
-                                                  .withValues(
-                                                      alpha: 0.3),
-                                              letterSpacing: -0.5,
+                                        if (date.isNotEmpty)
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets
+                                                    .only(top: 4),
+                                            child: Text(
+                                              date,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 10,
+                                                fontWeight:
+                                                    FontWeight.bold,
+                                                color: Colors.black
+                                                    .withValues(
+                                                        alpha: 0.3),
+                                                letterSpacing: -0.5,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                        ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                  Text(
-                                    stepState == 'completed'
-                                        ? 'DONE'
-                                        : stepState == 'current'
-                                            ? 'IN PROGRESS'
-                                            : 'PENDING',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w900,
-                                      color: stepState ==
-                                              'completed'
-                                          ? AppColors.success
-                                          : stepState == 'current'
-                                              ? AppColors.primary
-                                              : Colors.black
-                                                  .withValues(
-                                                      alpha: 0.2),
-                                      letterSpacing: -0.5,
+                                  const SizedBox(width: 10),
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment:
+                                          Alignment.centerRight,
+                                      child: Text(
+                                        stepState == 'completed'
+                                            ? 'DONE'
+                                            : stepState == 'current'
+                                                ? 'IN PROGRESS'
+                                                : 'PENDING',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
+                                          color: stepState ==
+                                                  'completed'
+                                              ? AppColors.success
+                                              : stepState == 'current'
+                                                  ? AppColors.primary
+                                                  : Colors.black
+                                                      .withValues(
+                                                          alpha: 0.2),
+                                          letterSpacing: -0.5,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],

@@ -13,13 +13,13 @@ class AdminRequestsScreen extends StatefulWidget {
 }
 
 class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
-  String _role       = '';
-  String _currentUid = '';
-  bool   _loading    = true;
+  String _role            = '';
+  String _currentUid      = '';
+  String _staffDepartment = '';
+  bool   _loading         = true;
 
   List<Map<String, dynamic>> _allRequests      = [];
   List<Map<String, dynamic>> _filteredRequests = [];
-  List<Map<String, dynamic>> _staffList        = [];
   List<String>               _departments      = [];
 
   String         _searchQuery      = '';
@@ -45,7 +45,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     super.dispose();
   }
 
-  // ΓöÇΓöÇ Data loading ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Data loading ───────────────────────────────────────────────────────────
   Future<void> _loadData() async {
     setState(() => _loading = true);
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -55,22 +55,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     try {
       final adminDoc = await FirebaseFirestore.instance
           .collection('admin').doc(uid).get();
-      _role = adminDoc.data()?['role'] ?? '';
-
-      final staffSnap = await FirebaseFirestore.instance
-          .collection('admin')
-          .where('role', isEqualTo: 'admin')
-          .where('isActive', isEqualTo: true)
-          .get();
-
-      // ΓöÇΓöÇ REVISED: Include department & departmentId in staffList ΓöÇΓöÇ
-      _staffList = staffSnap.docs.map((d) => {
-        'uid':          d.id,
-        'fullName':     d.data()['fullName'] ?? 'Staff',
-        'email':        d.data()['email'] ?? '',
-        'department':   d.data()['department'] ?? '',
-        'departmentId': d.data()['departmentId'] ?? '',
-      }).toList();
+      _role            = adminDoc.data()?['role'] ?? '';
+      _staffDepartment = adminDoc.data()?['department'] as String? ?? '';
 
       final deptSnap = await FirebaseFirestore.instance
           .collection('departments').get();
@@ -80,23 +66,68 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
           .toList();
 
       QuerySnapshot reqSnap;
+
       if (_role == 'superadmin') {
+        // Superadmin sees every request
         reqSnap = await FirebaseFirestore.instance
             .collection('requests')
             .orderBy('createdAt', descending: true)
             .get();
       } else {
-        reqSnap = await FirebaseFirestore.instance
+        // ── FIX: Staff sees requests assigned directly to them (assignedTo)
+        // AND requests routed to their department.
+        //
+        // Firestore does not support OR queries across different fields in a
+        // single query, so we run two separate queries and merge, deduplicating
+        // by document ID. This ensures staff see:
+        //   • Old requests assigned via assignedTo == uid (dashboard source)
+        //   • New requests routed by department == staffDepartment
+        //
+        // Previously only the department query ran, which returned 0 because
+        // existing requests were assigned via assignedTo before department
+        // routing was introduced.
+
+        // Query 1: directly assigned to this staff member
+        final assignedSnap = await FirebaseFirestore.instance
             .collection('requests')
             .where('assignedTo', isEqualTo: uid)
             .orderBy('createdAt', descending: true)
             .get();
+
+        // Query 2: routed to staff's department (skip if dept not set)
+        List<QueryDocumentSnapshot> deptDocs = [];
+        if (_staffDepartment.isNotEmpty) {
+          final deptSnap2 = await FirebaseFirestore.instance
+              .collection('requests')
+              .where('department', isEqualTo: _staffDepartment)
+              .orderBy('createdAt', descending: true)
+              .get();
+          deptDocs = deptSnap2.docs;
+        }
+
+        // Merge and deduplicate by document ID
+        final seen   = <String>{};
+        final merged = <QueryDocumentSnapshot>[];
+        for (final doc in [...assignedSnap.docs, ...deptDocs]) {
+          if (seen.add(doc.id)) merged.add(doc);
+        }
+
+        // Sort merged list by createdAt descending
+        merged.sort((a, b) {
+          final aTs = (a.data() as Map<String, dynamic>)['createdAt']
+              as Timestamp?;
+          final bTs = (b.data() as Map<String, dynamic>)['createdAt']
+              as Timestamp?;
+          if (aTs == null || bTs == null) return 0;
+          return bTs.compareTo(aTs);
+        });
+
+        reqSnap = _MergedQuerySnapshot(merged);
       }
 
       final userIds = reqSnap.docs
           .map((d) =>
-              (d.data() as Map<String, dynamic>)['userId']
-                  ?.toString() ?? '')
+              (d.data() as Map<String, dynamic>)['userId']?.toString() ?? '')
           .where((id) => id.isNotEmpty)
           .toSet()
           .toList();
@@ -113,48 +144,33 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         } catch (_) {}
       }
 
-      // ΓöÇΓöÇ REVISED: Build both staffNames and staffDepartments maps ΓöÇΓöÇ
-      final Map<String, String> staffNames = {};
-      final Map<String, String> staffDepartments = {};
-      for (final s in _staffList) {
-        staffNames[s['uid'] as String]       = s['fullName'] as String;
-        staffDepartments[s['uid'] as String] = s['department'] as String;
-      }
-
       _allRequests = reqSnap.docs.map((d) {
-        final data       = d.data() as Map<String, dynamic>;
-        final userId     = data['userId']?.toString() ?? '';
-        final assignedTo = data['assignedTo']?.toString() ?? '';
-
-        // ΓöÇΓöÇ REVISED: Use staff's department as fallback if request
-        //             has no department or is still "Unassigned" ΓöÇΓöÇ
+        final data    = d.data() as Map<String, dynamic>;
+        final userId  = data['userId']?.toString() ?? '';
         final rawDept = data['department']?.toString() ?? '';
-        final resolvedDepartment =
-            (rawDept.isNotEmpty && rawDept != 'Unassigned')
-                ? rawDept
-                : (staffDepartments[assignedTo] ?? '');
 
         return {
           'id':                 d.id,
           'trackingId':         data['trackingId'] ?? '',
           'serviceName':        data['serviceName'] ?? 'Service Request',
           'category':           data['category'] ?? '',
-          'department':         resolvedDepartment,
+          'department':         rawDept,
           'status':             data['status'] ?? 'submitted',
           'userId':             userId,
           'citizenName':        userNames[userId] ??
               data['citizenName'] ?? 'Unknown Citizen',
           'citizenEmail':       data['citizenEmail'] ?? '',
-          'assignedTo':         assignedTo,
-          'assignedName':       staffNames[assignedTo] ?? '',
+          'assignedTo':         data['assignedTo']?.toString() ?? '',
           'createdAt':          data['createdAt'],
           'updatedAt':          data['updatedAt'],
           'rejectionReason':    data['rejectionReason'] ?? '',
+          'returnReason':       data['returnReason'] ?? '',
           'statusHistory':      data['statusHistory'] ?? [],
           'documentUrls':       data['documentUrls'] ?? {},
           'missingDocuments':   data['missingDocuments'] ?? [],
           'verificationStatus': data['verificationStatus'] ?? 'unverified',
           'finalDocumentUrl':   data['finalDocumentUrl'] ?? '',
+          'isResubmission':     data['isResubmission'] ?? false,
         };
       }).toList();
 
@@ -184,8 +200,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         final ts = r['createdAt'] as Timestamp?;
         if (ts == null) return false;
         final date = ts.toDate();
-        return date.isAfter(_dateRange!.start
-                .subtract(const Duration(days: 1))) &&
+        return date.isAfter(
+                _dateRange!.start.subtract(const Duration(days: 1))) &&
             date.isBefore(
                 _dateRange!.end.add(const Duration(days: 1)));
       }).toList();
@@ -194,12 +210,9 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       final q = _searchQuery.toLowerCase();
       result = result
           .where((r) =>
-              r['trackingId']
-                  .toString().toLowerCase().contains(q) ||
-              r['citizenName']
-                  .toString().toLowerCase().contains(q) ||
-              r['serviceName']
-                  .toString().toLowerCase().contains(q))
+              r['trackingId'].toString().toLowerCase().contains(q) ||
+              r['citizenName'].toString().toLowerCase().contains(q) ||
+              r['serviceName'].toString().toLowerCase().contains(q))
           .toList();
     }
     result.sort((a, b) {
@@ -228,13 +241,12 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   int get _totalPages =>
       (_filteredRequests.length / _pageSize).ceil();
 
-  // ΓöÇΓöÇ BUILD ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── BUILD ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Center(
-          child: CircularProgressIndicator(
-              color: AppColors.primary));
+          child: CircularProgressIndicator(color: AppColors.primary));
     }
     return Padding(
       padding: const EdgeInsets.all(28),
@@ -255,7 +267,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // ΓöÇΓöÇ Header ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Header ─────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
     return Row(
       children: [
@@ -266,7 +278,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
               Text(
                 _role == 'superadmin'
                     ? 'All Requests'
-                    : 'My Assigned Requests',
+                    : 'My Requests',
                 style: GoogleFonts.inter(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -276,8 +288,12 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                '${_filteredRequests.length} request'
-                '${_filteredRequests.length != 1 ? 's' : ''} found',
+                _role == 'superadmin'
+                    ? '${_filteredRequests.length} request'
+                      '${_filteredRequests.length != 1 ? 's' : ''} found'
+                    : '${_filteredRequests.length} request'
+                      '${_filteredRequests.length != 1 ? 's' : ''}'
+                      '${_staffDepartment.isNotEmpty ? ' · $_staffDepartment' : ''}',
                 style: GoogleFonts.inter(
                     fontSize: 13, color: AppColors.muted),
               ),
@@ -305,7 +321,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // ΓöÇΓöÇ Filter bar ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Filter bar ─────────────────────────────────────────────────────────────
   Widget _buildFilterBar() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -343,7 +359,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear,
-                              size: 14, color: AppColors.muted),
+                              size: 14,
+                              color: AppColors.muted),
                           onPressed: () {
                             _searchController.clear();
                             _searchQuery = '';
@@ -357,13 +374,13 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                       const EdgeInsets.symmetric(horizontal: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                        color: Color(0xFFEEEEEE)),
+                    borderSide:
+                        const BorderSide(color: Color(0xFFEEEEEE)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                        color: Color(0xFFEEEEEE)),
+                    borderSide:
+                        const BorderSide(color: Color(0xFFEEEEEE)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -387,6 +404,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                 'approved':         'Approved',
                 'ready_for_pickup': 'Ready for Pick Up',
                 'completed':        'Completed',
+                'returned':         'Returned',
                 'rejected':         'Rejected',
               },
               onChanged: (v) {
@@ -396,7 +414,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          if (_departments.isNotEmpty) ...[
+          if (_departments.isNotEmpty && _role == 'superadmin') ...[
             Expanded(
               flex: 2,
               child: _buildDropdown(
@@ -458,7 +476,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   const SizedBox(width: 6),
                   Text(
                     _dateRange != null
-                        ? '${_fmtShort(_dateRange!.start)} ΓÇô '
+                        ? '${_fmtShort(_dateRange!.start)} – '
                           '${_fmtShort(_dateRange!.end)}'
                         : 'Date Range',
                     style: GoogleFonts.inter(
@@ -544,7 +562,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     }
   }
 
-  // ΓöÇΓöÇ Stats row ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Stats row ──────────────────────────────────────────────────────────────
   Widget _buildStatsRow() {
     final stats = <Map<String, dynamic>>[
       {
@@ -590,6 +608,14 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         'color': const Color(0xFF10B981),
       },
       {
+        'key':   'returned',
+        'label': 'Returned',
+        'value': _allRequests
+            .where((r) => r['status'] == 'returned')
+            .length,
+        'color': const Color(0xFFF97316),
+      },
+      {
         'key':   'rejected',
         'label': 'Rejected',
         'value': _allRequests
@@ -628,7 +654,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
+                    color:
+                        Colors.black.withValues(alpha: 0.03),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -675,7 +702,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // ΓöÇΓöÇ Table ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Table ──────────────────────────────────────────────────────────────────
   Widget _buildTable() {
     return Container(
       decoration: BoxDecoration(
@@ -708,7 +735,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                 _headerCell('Service',        flex: 3),
                 _headerCell('Department',     flex: 2),
                 _headerCell('Status',         flex: 2),
-                _headerCell('Assigned Staff', flex: 2),
                 _headerCell('Date Submitted', flex: 2),
                 _headerCell('Actions',        flex: 2,
                     align: TextAlign.center),
@@ -776,7 +802,25 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
                       )),
-                  if (hasDocs)
+                  if (r['isResubmission'] == true)
+                    Container(
+                      margin: const EdgeInsets.only(top: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8B5CF6)
+                            .withValues(alpha: 0.10),
+                        borderRadius:
+                            BorderRadius.circular(20),
+                      ),
+                      child: Text('Resubmission',
+                          style: GoogleFonts.inter(
+                            fontSize: 9,
+                            color: const Color(0xFF8B5CF6),
+                            fontWeight: FontWeight.w700,
+                          )),
+                    )
+                  else if (hasDocs)
                     Row(children: [
                       Icon(
                         missing.isNotEmpty
@@ -821,13 +865,12 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                       fontSize: 12,
                       color: const Color(0xFF444444))),
             ),
-            // ΓöÇΓöÇ REVISED: Shows resolved department (from staff if empty) ΓöÇΓöÇ
             Expanded(
               flex: 2,
               child: Text(
                 (r['department'] as String?)?.isNotEmpty == true
                     ? r['department'] as String
-                    : 'ΓÇö',
+                    : '—',
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
                     fontSize: 12,
@@ -855,18 +898,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
             Expanded(
               flex: 2,
               child: Text(
-                (r['assignedName'] as String?)?.isNotEmpty == true
-                    ? r['assignedName'] as String
-                    : 'ΓÇö',
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: const Color(0xFF666666)),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
                 _fmtTs(r['createdAt'] as Timestamp?),
                 style: GoogleFonts.inter(
                     fontSize: 11, color: AppColors.muted),
@@ -883,15 +914,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                     tooltip: 'View Details',
                     onTap: () => _showRequestDialog(r),
                   ),
-                  if (_role == 'superadmin') ...[
-                    const SizedBox(width: 6),
-                    _actionBtn(
-                      icon: Icons.person_add_rounded,
-                      color: AppColors.primary,
-                      tooltip: 'Assign Staff',
-                      onTap: () => _showAssignDialog(r),
-                    ),
-                  ],
                   const SizedBox(width: 6),
                   _actionBtn(
                     icon: Icons.edit_rounded,
@@ -955,14 +977,14 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // ΓöÇΓöÇ Pagination ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Pagination ─────────────────────────────────────────────────────────────
   Widget _buildPagination() {
     if (_totalPages <= 1) return const SizedBox.shrink();
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          'Showing ${_currentPage * _pageSize + 1}ΓÇô'
+          'Showing ${_currentPage * _pageSize + 1}–'
           '${(_currentPage * _pageSize + _pagedRequests.length)} '
           'of ${_filteredRequests.length}',
           style: GoogleFonts.inter(
@@ -1041,76 +1063,83 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // Request detail dialog
+  // ── Request detail dialog ──────────────────────────────────────────────────
   void _showRequestDialog(Map<String, dynamic> r) {
     final statusStyle = _getStatusStyle(r['status'] as String);
-    final docUrls = r['documentUrls'] as Map<String, dynamic>? ?? {};
-    final missing = List<String>.from(r['missingDocuments'] as List? ?? []);
-    final verStatus = r['verificationStatus']?.toString() ?? 'unverified';
+    final docUrls =
+        r['documentUrls'] as Map<String, dynamic>? ?? {};
+    final missing = List<String>.from(
+        r['missingDocuments'] as List? ?? []);
+    final verStatus =
+        r['verificationStatus']?.toString() ?? 'unverified';
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialog) {
-          final screenWidth = MediaQuery.of(ctx).size.width;
-          final isNarrow = screenWidth < 940;
-          final dialogMaxWidth = isNarrow ? screenWidth - 32 : 760.0;
+          final screenWidth    = MediaQuery.of(ctx).size.width;
+          final isNarrow       = screenWidth < 940;
+          final dialogMaxWidth =
+              isNarrow ? screenWidth - 32 : 760.0;
 
           Widget buildDetailsColumn() {
             final requestInfo = _buildDetailSection(
               'Request Information',
               [
-                _detailRow('Tracking ID', r['trackingId'] as String),
-                _detailRow('Service', r['serviceName'] as String),
-                _detailRow(
-                  'Category',
-                  (r['category'] as String?)?.isNotEmpty == true
-                      ? r['category'] as String
-                      : '—',
-                ),
-                _detailRow(
-                  'Department',
-                  (r['department'] as String?)?.isNotEmpty == true
-                      ? r['department'] as String
-                      : '—',
-                ),
-                _detailRow('Date Submitted', _fmtTs(r['createdAt'] as Timestamp?)),
-                _detailRow('Last Updated', _fmtTs(r['updatedAt'] as Timestamp?)),
+                _detailRow('Tracking ID',
+                    r['trackingId'] as String),
+                _detailRow('Service',
+                    r['serviceName'] as String),
+                _detailRow('Category',
+                    (r['category'] as String?)?.isNotEmpty ==
+                            true
+                        ? r['category'] as String
+                        : '—'),
+                _detailRow('Department',
+                    (r['department'] as String?)?.isNotEmpty ==
+                            true
+                        ? r['department'] as String
+                        : '—'),
+                _detailRow('Date Submitted',
+                    _fmtTs(r['createdAt'] as Timestamp?)),
+                _detailRow('Last Updated',
+                    _fmtTs(r['updatedAt'] as Timestamp?)),
+                if (r['isResubmission'] == true)
+                  _detailRow('Type', 'Resubmission'),
               ],
             );
 
             final citizenInfo = _buildDetailSection(
-              'Citizen & Assignment',
+              'Citizen Information',
               [
-                _detailRow('Citizen', r['citizenName'] as String),
+                _detailRow(
+                    'Citizen', r['citizenName'] as String),
                 _detailRow(
                   'Email',
-                  (r['citizenEmail'] as String?)?.isNotEmpty == true
+                  (r['citizenEmail'] as String?)?.isNotEmpty ==
+                          true
                       ? r['citizenEmail'] as String
                       : '—',
                 ),
-                _detailRow(
-                  'Assigned To',
-                  (r['assignedName'] as String?)?.isNotEmpty == true
-                      ? r['assignedName'] as String
-                      : 'Unassigned',
-                ),
-                _detailRow('Current Status', statusStyle['label'] as String),
+                _detailRow('Current Status',
+                    statusStyle['label'] as String),
+                if ((r['returnReason'] as String).isNotEmpty)
+                  _detailRow(
+                      'Return Reason',
+                      r['returnReason'] as String),
                 if ((r['rejectionReason'] as String).isNotEmpty)
-                  _detailRow('Rejection Reason', r['rejectionReason'] as String),
+                  _detailRow('Rejection Reason',
+                      r['rejectionReason'] as String),
               ],
             );
 
             if (isNarrow) {
-              return Column(
-                children: [
-                  requestInfo,
-                  const SizedBox(height: 20),
-                  citizenInfo,
-                ],
-              );
+              return Column(children: [
+                requestInfo,
+                const SizedBox(height: 20),
+                citizenInfo,
+              ]);
             }
-
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1121,365 +1150,75 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
             );
           }
 
-          Widget buildDocumentItems() {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: verStatus == 'verified'
-                            ? const Color(0xFF10B981).withValues(alpha: 0.10)
-                            : const Color(0xFFF59E0B).withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        verStatus == 'verified' ? 'Documents Verified' : 'Pending Verification',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: verStatus == 'verified'
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFF59E0B),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    if (verStatus != 'verified')
-                      TextButton.icon(
-                        onPressed: () async {
-                          await FirebaseFirestore.instance
-                              .collection('requests')
-                              .doc(r['id'] as String)
-                              .update({
-                            'verificationStatus': 'verified',
-                            'updatedAt': FieldValue.serverTimestamp(),
-                          });
-                          if (mounted) {
-                            Navigator.of(ctx).pop();
-                            _showSnack('Documents marked as verified', const Color(0xFF10B981));
-                            _loadData();
-                          }
-                        },
-                        icon: const Icon(Icons.verified_rounded, size: 14),
-                        label: Text('Mark Verified',
-                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF10B981),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ...docUrls.entries.map((entry) {
-                  final docName = entry.key;
-                  final docUrl = entry.value.toString();
-                  final isMissing = missing.contains(docName);
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isMissing
-                          ? const Color(0xFFEF4444).withValues(alpha: 0.05)
-                          : const Color(0xFF10B981).withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isMissing
-                            ? const Color(0xFFEF4444).withValues(alpha: 0.20)
-                            : const Color(0xFF10B981).withValues(alpha: 0.20),
-                      ),
-                    ),
-                    child: isNarrow
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    isMissing ? Icons.warning_amber_rounded : Icons.description_rounded,
-                                    size: 16,
-                                    color: isMissing ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      docName,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF333333),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (isMissing) ...[
-                                const SizedBox(height: 6),
-                                Text('Flagged as missing',
-                                    style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFFEF4444))),
-                              ],
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  TextButton.icon(
-                                    onPressed: () async {
-                                      final uri = Uri.parse(docUrl);
-                                      if (await canLaunchUrl(uri)) {
-                                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                      }
-                                    },
-                                    icon: const Icon(Icons.open_in_new_rounded, size: 13),
-                                    label: Text('View', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: AppColors.primary,
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    ),
-                                  ),
-                                  TextButton.icon(
-                                    onPressed: () async {
-                                      final requestId = r['id'] as String;
-                                      if (isMissing) {
-                                        await FirebaseFirestore.instance.collection('requests').doc(requestId).update({
-                                          'missingDocuments': FieldValue.arrayRemove([docName]),
-                                          'updatedAt': FieldValue.serverTimestamp(),
-                                        });
-                                        if (mounted) {
-                                          Navigator.of(ctx).pop();
-                                          _showSnack('$docName unflagged', const Color(0xFF10B981));
-                                          _loadData();
-                                        }
-                                      } else {
-                                        await FirebaseFirestore.instance.collection('requests').doc(requestId).update({
-                                          'missingDocuments': FieldValue.arrayUnion([docName]),
-                                          'updatedAt': FieldValue.serverTimestamp(),
-                                        });
-                                        if (mounted) {
-                                          Navigator.of(ctx).pop();
-                                          _showSnack('$docName flagged as missing', const Color(0xFFF59E0B));
-                                          _loadData();
-                                        }
-                                      }
-                                    },
-                                    icon: Icon(
-                                      isMissing ? Icons.check_circle_outline_rounded : Icons.flag_rounded,
-                                      size: 13,
-                                    ),
-                                    label: Text(
-                                      isMissing ? 'Unflag' : 'Flag Missing',
-                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
-                                    ),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: isMissing
-                                          ? const Color(0xFF10B981)
-                                          : const Color(0xFFF59E0B),
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              Icon(
-                                isMissing ? Icons.warning_amber_rounded : Icons.description_rounded,
-                                size: 16,
-                                color: isMissing ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      docName,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF333333),
-                                      ),
-                                    ),
-                                    if (isMissing)
-                                      Text('Flagged as missing',
-                                          style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFFEF4444))),
-                                  ],
-                                ),
-                              ),
-                              TextButton.icon(
-                                onPressed: () async {
-                                  final uri = Uri.parse(docUrl);
-                                  if (await canLaunchUrl(uri)) {
-                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                  }
-                                },
-                                icon: const Icon(Icons.open_in_new_rounded, size: 13),
-                                label: Text('View', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.primary,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                ),
-                              ),
-                              TextButton.icon(
-                                onPressed: () async {
-                                  final requestId = r['id'] as String;
-                                  if (isMissing) {
-                                    await FirebaseFirestore.instance.collection('requests').doc(requestId).update({
-                                      'missingDocuments': FieldValue.arrayRemove([docName]),
-                                      'updatedAt': FieldValue.serverTimestamp(),
-                                    });
-                                    if (mounted) {
-                                      Navigator.of(ctx).pop();
-                                      _showSnack('$docName unflagged', const Color(0xFF10B981));
-                                      _loadData();
-                                    }
-                                  } else {
-                                    await FirebaseFirestore.instance.collection('requests').doc(requestId).update({
-                                      'missingDocuments': FieldValue.arrayUnion([docName]),
-                                      'updatedAt': FieldValue.serverTimestamp(),
-                                    });
-                                    if (mounted) {
-                                      Navigator.of(ctx).pop();
-                                      _showSnack('$docName flagged as missing', const Color(0xFFF59E0B));
-                                      _loadData();
-                                    }
-                                  }
-                                },
-                                icon: Icon(
-                                  isMissing ? Icons.check_circle_outline_rounded : Icons.flag_rounded,
-                                  size: 13,
-                                ),
-                                label: Text(
-                                  isMissing ? 'Unflag' : 'Flag Missing',
-                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
-                                ),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: isMissing ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                ),
-                              ),
-                            ],
-                          ),
-                  );
-                }),
-              ],
-            );
-          }
-
-          Widget buildStatusHistory() {
-            final history = (r['statusHistory'] as List?) ?? const [];
-            if (history.isEmpty) {
-              return const SizedBox.shrink();
-            }
-
-            return _buildDetailSection(
-              'Status History',
-              [],
-              child: Column(
-                children: history.map((h) {
-                  final hMap = h as Map<String, dynamic>;
-                  final hStyle = _getStatusStyle(hMap['status']?.toString() ?? 'submitted');
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: hStyle['color'] as Color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            hStyle['label'] as String,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF333333),
-                            ),
-                          ),
-                        ),
-                        if (hMap['note'] != null && hMap['note'].toString().isNotEmpty)
-                          Flexible(
-                            child: Text(
-                              hMap['note'].toString(),
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(fontSize: 11, color: AppColors.muted),
-                            ),
-                          ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _fmtTs(hMap['timestamp'] as Timestamp?),
-                          style: GoogleFonts.inter(fontSize: 11, color: AppColors.muted),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-            );
-          }
-
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            insetPadding: EdgeInsets.symmetric(horizontal: isNarrow ? 16 : 40, vertical: 24),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            insetPadding: EdgeInsets.symmetric(
+                horizontal: isNarrow ? 16 : 40,
+                vertical: 24),
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: dialogMaxWidth,
-                maxHeight: MediaQuery.of(ctx).size.height * 0.88,
+                maxHeight:
+                    MediaQuery.of(ctx).size.height * 0.88,
               ),
               child: Column(
                 children: [
+                  // Header
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFFFF9200), Color(0xFFFF5E00)],
+                        colors: [
+                          Color(0xFFFF9200),
+                          Color(0xFFFF5E00)
+                        ],
                       ),
                       borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(20),
+                        topLeft:  Radius.circular(20),
                         topRight: Radius.circular(20),
                       ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.assignment_rounded, color: Colors.white, size: 22),
+                        const Icon(
+                            Icons.assignment_rounded,
+                            color: Colors.white,
+                            size: 22),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
                             children: [
                               Text(
-                                r['serviceName'] as String,
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
+                                  r['serviceName'] as String,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  )),
                               Text(
-                                r['trackingId'] as String,
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: Colors.white.withValues(alpha: 0.80),
-                                ),
-                              ),
+                                  r['trackingId'] as String,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: Colors.white
+                                        .withValues(alpha: 0.80),
+                                  )),
                             ],
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.20),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
+                            color: Colors.white
+                                .withValues(alpha: 0.20),
+                            borderRadius:
+                                BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.white
+                                    .withValues(alpha: 0.30)),
                           ),
                           child: Text(
                             statusStyle['label'] as String,
@@ -1492,52 +1231,440 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                         ),
                         const SizedBox(width: 12),
                         IconButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                          onPressed: () =>
+                              Navigator.pop(ctx),
+                          icon: const Icon(Icons.close,
+                              color: Colors.white, size: 20),
                         ),
                       ],
                     ),
                   ),
+
+                  // Body
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(24),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
                         children: [
                           buildDetailsColumn(),
-                          if (docUrls.isNotEmpty) ...[
-                            const SizedBox(height: 20),
-                            _buildDetailSection('Submitted Documents', [], child: buildDocumentItems()),
-                          ] else ...[
-                            const SizedBox(height: 20),
+
+                          // Documents
+                          const SizedBox(height: 20),
+                          if (docUrls.isNotEmpty)
+                            _buildDetailSection(
+                              'Submitted Documents',
+                              [],
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    Container(
+                                      padding: const EdgeInsets
+                                          .symmetric(
+                                              horizontal: 10,
+                                              vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: verStatus ==
+                                                'verified'
+                                            ? const Color(
+                                                    0xFF10B981)
+                                                .withValues(
+                                                    alpha: 0.10)
+                                            : const Color(
+                                                    0xFFF59E0B)
+                                                .withValues(
+                                                    alpha: 0.10),
+                                        borderRadius:
+                                            BorderRadius.circular(
+                                                20),
+                                      ),
+                                      child: Text(
+                                        verStatus == 'verified'
+                                            ? 'Documents Verified'
+                                            : 'Pending Verification',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          fontWeight:
+                                              FontWeight.w700,
+                                          color: verStatus ==
+                                                  'verified'
+                                              ? const Color(
+                                                  0xFF10B981)
+                                              : const Color(
+                                                  0xFFF59E0B),
+                                        ),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    if (verStatus != 'verified')
+                                      TextButton.icon(
+                                        onPressed: () async {
+                                          await FirebaseFirestore
+                                              .instance
+                                              .collection(
+                                                  'requests')
+                                              .doc(r['id']
+                                                  as String)
+                                              .update({
+                                            'verificationStatus':
+                                                'verified',
+                                            'updatedAt':
+                                                FieldValue
+                                                    .serverTimestamp(),
+                                          });
+                                          if (mounted) {
+                                            Navigator.of(ctx)
+                                                .pop();
+                                            _showSnack(
+                                                'Documents marked as verified',
+                                                const Color(
+                                                    0xFF10B981));
+                                            _loadData();
+                                          }
+                                        },
+                                        icon: const Icon(
+                                            Icons
+                                                .verified_rounded,
+                                            size: 14),
+                                        label: Text(
+                                            'Mark Verified',
+                                            style:
+                                                GoogleFonts.inter(
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight
+                                                            .w600)),
+                                        style:
+                                            TextButton.styleFrom(
+                                          foregroundColor:
+                                              const Color(
+                                                  0xFF10B981),
+                                        ),
+                                      ),
+                                  ]),
+                                  const SizedBox(height: 12),
+                                  ...docUrls.entries.map((entry) {
+                                    final docName  = entry.key;
+                                    final docUrl   =
+                                        entry.value.toString();
+                                    final isMissing =
+                                        missing.contains(docName);
+                                    return Container(
+                                      margin: const EdgeInsets
+                                          .only(bottom: 8),
+                                      padding: const EdgeInsets
+                                          .symmetric(
+                                              horizontal: 14,
+                                              vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: isMissing
+                                            ? const Color(
+                                                    0xFFEF4444)
+                                                .withValues(
+                                                    alpha: 0.05)
+                                            : const Color(
+                                                    0xFF10B981)
+                                                .withValues(
+                                                    alpha: 0.05),
+                                        borderRadius:
+                                            BorderRadius.circular(
+                                                10),
+                                        border: Border.all(
+                                          color: isMissing
+                                              ? const Color(
+                                                      0xFFEF4444)
+                                                  .withValues(
+                                                      alpha: 0.20)
+                                              : const Color(
+                                                      0xFF10B981)
+                                                  .withValues(
+                                                      alpha: 0.20),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            isMissing
+                                                ? Icons
+                                                    .warning_amber_rounded
+                                                : Icons
+                                                    .description_rounded,
+                                            size: 16,
+                                            color: isMissing
+                                                ? const Color(
+                                                    0xFFEF4444)
+                                                : const Color(
+                                                    0xFF10B981),
+                                          ),
+                                          const SizedBox(
+                                              width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment
+                                                      .start,
+                                              children: [
+                                                Text(docName,
+                                                    style: GoogleFonts
+                                                        .inter(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight
+                                                              .w600,
+                                                      color: const Color(
+                                                          0xFF333333),
+                                                    )),
+                                                if (isMissing)
+                                                  Text(
+                                                      'Flagged as missing',
+                                                      style: GoogleFonts
+                                                          .inter(
+                                                              fontSize:
+                                                                  10,
+                                                              color: const Color(
+                                                                  0xFFEF4444))),
+                                              ],
+                                            ),
+                                          ),
+                                          TextButton.icon(
+                                            onPressed: () async {
+                                              final uri =
+                                                  Uri.parse(docUrl);
+                                              if (await canLaunchUrl(
+                                                  uri)) {
+                                                await launchUrl(uri,
+                                                    mode: LaunchMode
+                                                        .externalApplication);
+                                              }
+                                            },
+                                            icon: const Icon(
+                                                Icons
+                                                    .open_in_new_rounded,
+                                                size: 13),
+                                            label: Text('View',
+                                                style: GoogleFonts
+                                                    .inter(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight
+                                                                .w600)),
+                                            style: TextButton
+                                                .styleFrom(
+                                              foregroundColor:
+                                                  AppColors.primary,
+                                              padding: const EdgeInsets
+                                                  .symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6),
+                                            ),
+                                          ),
+                                          TextButton.icon(
+                                            onPressed: () async {
+                                              final requestId =
+                                                  r['id'] as String;
+                                              if (isMissing) {
+                                                await FirebaseFirestore
+                                                    .instance
+                                                    .collection(
+                                                        'requests')
+                                                    .doc(requestId)
+                                                    .update({
+                                                  'missingDocuments':
+                                                      FieldValue
+                                                          .arrayRemove(
+                                                              [docName]),
+                                                  'updatedAt':
+                                                      FieldValue
+                                                          .serverTimestamp(),
+                                                });
+                                                if (mounted) {
+                                                  Navigator.of(ctx)
+                                                      .pop();
+                                                  _showSnack(
+                                                      '$docName unflagged',
+                                                      const Color(
+                                                          0xFF10B981));
+                                                  _loadData();
+                                                }
+                                              } else {
+                                                await FirebaseFirestore
+                                                    .instance
+                                                    .collection(
+                                                        'requests')
+                                                    .doc(requestId)
+                                                    .update({
+                                                  'missingDocuments':
+                                                      FieldValue
+                                                          .arrayUnion(
+                                                              [docName]),
+                                                  'updatedAt':
+                                                      FieldValue
+                                                          .serverTimestamp(),
+                                                });
+                                                if (mounted) {
+                                                  Navigator.of(ctx)
+                                                      .pop();
+                                                  _showSnack(
+                                                      '$docName flagged as missing',
+                                                      const Color(
+                                                          0xFFF59E0B));
+                                                  _loadData();
+                                                }
+                                              }
+                                            },
+                                            icon: Icon(
+                                              isMissing
+                                                  ? Icons
+                                                      .check_circle_outline_rounded
+                                                  : Icons
+                                                      .flag_rounded,
+                                              size: 13,
+                                            ),
+                                            label: Text(
+                                              isMissing
+                                                  ? 'Unflag'
+                                                  : 'Flag Missing',
+                                              style:
+                                                  GoogleFonts.inter(
+                                                fontSize: 12,
+                                                fontWeight:
+                                                    FontWeight.w600,
+                                              ),
+                                            ),
+                                            style: TextButton
+                                                .styleFrom(
+                                              foregroundColor:
+                                                  isMissing
+                                                      ? const Color(
+                                                          0xFF10B981)
+                                                      : const Color(
+                                                          0xFFF59E0B),
+                                              padding: const EdgeInsets
+                                                  .symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            )
+                          else
                             _buildDetailSection(
                               'Submitted Documents',
                               [],
                               child: Center(
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets
+                                      .symmetric(vertical: 16),
                                   child: Text(
                                     'No documents uploaded yet.',
-                                    style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: AppColors.muted),
                                   ),
                                 ),
                               ),
                             ),
-                          ],
-                          if ((r['statusHistory'] as List).isNotEmpty) ...[
+
+                          // Status history
+                          if ((r['statusHistory'] as List)
+                              .isNotEmpty) ...[
                             const SizedBox(height: 20),
-                            buildStatusHistory(),
+                            _buildDetailSection(
+                              'Status History',
+                              [],
+                              child: Column(
+                                children:
+                                    (r['statusHistory'] as List)
+                                        .map((h) {
+                                  final hMap = h
+                                      as Map<String, dynamic>;
+                                  final hStyle = _getStatusStyle(
+                                      hMap['status']?.toString() ??
+                                          'submitted');
+                                  return Padding(
+                                    padding: const EdgeInsets
+                                        .only(bottom: 10),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: hStyle['color']
+                                                as Color,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            hStyle['label']
+                                                as String,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              fontWeight:
+                                                  FontWeight.w600,
+                                              color: const Color(
+                                                  0xFF333333),
+                                            ),
+                                          ),
+                                        ),
+                                        if (hMap['note'] != null &&
+                                            hMap['note']
+                                                .toString()
+                                                .isNotEmpty)
+                                          Flexible(
+                                            child: Text(
+                                              hMap['note']
+                                                  .toString(),
+                                              overflow: TextOverflow
+                                                  .ellipsis,
+                                              style:
+                                                  GoogleFonts.inter(
+                                                      fontSize: 11,
+                                                      color: AppColors
+                                                          .muted),
+                                            ),
+                                          ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _fmtTs(
+                                              hMap['timestamp']
+                                                  as Timestamp?),
+                                          style:
+                                              GoogleFonts.inter(
+                                                  fontSize: 11,
+                                                  color: AppColors
+                                                      .muted),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
                           ],
                         ],
                       ),
                     ),
                   ),
+
+                  // Footer
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 16),
                     decoration: const BoxDecoration(
                       color: Color(0xFFF7F8FC),
                       borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(20),
+                        bottomLeft:  Radius.circular(20),
                         bottomRight: Radius.circular(20),
                       ),
                     ),
@@ -1547,61 +1674,46 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                       alignment: WrapAlignment.end,
                       children: [
                         OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
+                          onPressed: () =>
+                              Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFEEEEEE)),
+                            side: const BorderSide(
+                                color: Color(0xFFEEEEEE)),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                borderRadius:
+                                    BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
                           ),
-                          child: Text(
-                            'Close',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.muted,
-                            ),
-                          ),
+                          child: Text('Close',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.muted,
+                              )),
                         ),
                         ElevatedButton.icon(
                           onPressed: () {
                             Navigator.pop(ctx);
                             _showUpdateStatusDialog(r);
                           },
-                          icon: const Icon(Icons.edit_rounded, size: 15),
-                          label: Text(
-                            'Update Status',
-                            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                          ),
+                          icon: const Icon(Icons.edit_rounded,
+                              size: 15),
+                          label: Text('Update Status',
+                              style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                borderRadius:
+                                    BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
                           ),
                         ),
-                        if (_role == 'superadmin')
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              _showAssignDialog(r);
-                            },
-                            icon: const Icon(Icons.person_add_rounded, size: 15),
-                            label: Text(
-                              'Assign Staff',
-                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF5C6BC0),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -1648,7 +1760,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 130,
             child: Text(label,
                 style: GoogleFonts.inter(
                   fontSize: 12,
@@ -1669,316 +1781,261 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // ΓöÇΓöÇ Assign dialog ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  void _showAssignDialog(Map<String, dynamic> r) {
-    String? selectedStaff =
-        (r['assignedTo'] as String?)?.isNotEmpty == true
-            ? r['assignedTo'] as String
-            : null;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setInner) => AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
-          title: Text('Assign Staff',
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w700, fontSize: 16)),
-          content: SizedBox(
-            width: 360,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Request: ${r['serviceName']}',
-                    style: GoogleFonts.inter(
-                        fontSize: 13, color: AppColors.muted)),
-                const SizedBox(height: 16),
-                Text('Select Staff Member',
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                if (_staffList.isEmpty)
-                  Text('No staff available.',
-                      style: GoogleFonts.inter(
-                          color: AppColors.muted, fontSize: 13))
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                          color: const Color(0xFFEEEEEE)),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedStaff,
-                        isExpanded: true,
-                        hint: Text('Choose staff...',
-                            style: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: AppColors.muted)),
-                        items: _staffList
-                            .map((s) => DropdownMenuItem<String>(
-                                  value: s['uid'] as String,
-                                  child: Text(
-                                      s['fullName'] as String,
-                                      style: GoogleFonts.inter(
-                                          fontSize: 13)),
-                                ))
-                            .toList(),
-                        onChanged: (v) =>
-                            setInner(() => selectedStaff = v),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel',
-                  style: GoogleFonts.inter(
-                      color: AppColors.muted)),
-            ),
-            ElevatedButton(
-              onPressed: selectedStaff == null
-                  ? null
-                  : () async {
-                      Navigator.pop(ctx);
-                      await _assignStaff(
-                          r['id'] as String, selectedStaff!);
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-              ),
-              child: Text('Assign',
-                  style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ΓöÇΓöÇ _assignStaff with citizen notification ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  Future<void> _assignStaff(
-      String requestId, String staffUid) async {
-    try {
-      final staffEntry = _staffList.firstWhere(
-        (s) => s['uid'] == staffUid,
-        orElse: () => {'fullName': 'Staff', 'uid': staffUid},
-      );
-      final staffName = staffEntry['fullName'] as String;
-
-      // ΓöÇΓöÇ Get staff's department from Firestore ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-      String staffDepartment = '';
-      String staffDepartmentId = '';
-      try {
-        final staffDoc = await FirebaseFirestore.instance
-            .collection('admin')
-            .doc(staffUid)
-            .get();
-        staffDepartment   = staffDoc.data()?['department']   as String? ?? '';
-        staffDepartmentId = staffDoc.data()?['departmentId'] as String? ?? '';
-        // fallback: look up department name by departmentId
-        if (staffDepartment.isEmpty && staffDepartmentId.isNotEmpty) {
-          final deptDoc = await FirebaseFirestore.instance
-              .collection('departments')
-              .doc(staffDepartmentId)
-              .get();
-          staffDepartment = deptDoc.data()?['name'] as String? ?? '';
-        }
-      } catch (_) {}
-
-      // Get userId + trackingId from the request
-      final reqDoc = await FirebaseFirestore.instance
-          .collection('requests')
-          .doc(requestId)
-          .get();
-      final userId      = reqDoc.data()?['userId']?.toString()      ?? '';
-      final trackingId  = reqDoc.data()?['trackingId']?.toString()  ?? '';
-      final serviceName = reqDoc.data()?['serviceName']?.toString() ?? 'your request';
-
-      // ΓöÇΓöÇ Build update payload ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-      final Map<String, dynamic> updatePayload = {
-        'assignedTo': staffUid,
-        'assignedBy': _currentUid,
-        'assignedAt': FieldValue.serverTimestamp(),
-        'status':     'pending_review',
-        'updatedAt':  FieldValue.serverTimestamp(),
-        'statusHistory': FieldValue.arrayUnion([
-          {
-            'status':    'pending_review',
-            'timestamp': Timestamp.now(),
-            'note':      'Assigned to $staffName',
-          }
-        ]),
-      };
-
-      // Only update department if the request has none and staff has one
-      if (staffDepartment.isNotEmpty) {
-        final currentDept = reqDoc.data()?['department']?.toString() ?? '';
-        if (currentDept.isEmpty || currentDept == 'Unassigned') {
-          updatePayload['department']   = staffDepartment;
-          updatePayload['departmentId'] = staffDepartmentId;
-        }
-      }
-
-      await FirebaseFirestore.instance
-          .collection('requests')
-          .doc(requestId)
-          .update(updatePayload);
-
-      // ΓöÇΓöÇ Send notification to citizen ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-      if (userId.isNotEmpty) {
-        await FirebaseFirestore.instance
-            .collection('notifications')
-            .doc(userId)
-            .collection('items')
-            .add({
-          'title': 'Request Assigned',
-          'body':
-              'Your request ($trackingId) for $serviceName '
-              'has been assigned to a staff member and is now '
-              'under review.',
-          'type':      'status_update',
-          'isRead':    false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      if (mounted) {
-        _showSnack(
-            'Request assigned to $staffName Γ£ô',
-            AppColors.success);
-        _loadData();
-      }
-    } catch (e) {
-      if (mounted) {
-        _showSnack('Failed to assign: $e', AppColors.danger);
-      }
-    }
-  }
-
-  // ΓöÇΓöÇ Update Status dialog ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Update Status dialog ───────────────────────────────────────────────────
   void _showUpdateStatusDialog(Map<String, dynamic> r) {
-    String selectedStatus = r['status'] as String;
-    final noteController  = TextEditingController();
+    String selectedStatus    = r['status'] as String;
+    final noteController     = TextEditingController();
     final finalDocController = TextEditingController(
         text: r['finalDocumentUrl']?.toString() ?? '');
+    final reasonController   = TextEditingController();
+    bool  reasonRequired     = false;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setInner) => AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
-          title: Text('Update Status',
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w700, fontSize: 16)),
-          content: SizedBox(
-            width: 400,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Request: ${r['serviceName']}',
-                      style: GoogleFonts.inter(
-                          fontSize: 13, color: AppColors.muted)),
-                  const SizedBox(height: 16),
-                  Text('New Status',
-                      style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  ...[
-                    'submitted',
-                    'pending_review',
-                    'processing',
-                    'approved',
-                    'ready_for_pickup',
-                    'completed',
-                    'rejected',
-                  ].map((s) {
-                    final style      = _getStatusStyle(s);
-                    final sColor     = style['color'] as Color;
-                    final sLabel     = style['label'] as String;
-                    final isSelected = selectedStatus == s;
-                    return GestureDetector(
-                      onTap: () =>
-                          setInner(() => selectedStatus = s),
-                      child: AnimatedContainer(
-                        duration:
-                            const Duration(milliseconds: 150),
-                        margin:
-                            const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? sColor.withValues(alpha: 0.10)
-                              : const Color(0xFFF7F8FC),
-                          borderRadius:
-                              BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isSelected
-                                ? sColor.withValues(alpha: 0.40)
-                                : const Color(0xFFEEEEEE),
-                            width: isSelected ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 8, height: 8,
-                              decoration: BoxDecoration(
-                                  color: sColor,
-                                  shape: BoxShape.circle),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(sLabel,
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                  color: isSelected
-                                      ? sColor
-                                      : const Color(0xFF444444),
-                                )),
-                            if (isSelected) ...[
-                              const Spacer(),
-                              Icon(Icons.check_circle_rounded,
-                                  color: sColor, size: 16),
-                            ],
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 8),
-                  if (selectedStatus == 'completed') ...[
-                    Text('Final Document URL (optional)',
+        builder: (ctx, setInner) {
+          reasonRequired = selectedStatus == 'returned' ||
+              selectedStatus == 'rejected';
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            title: Text('Update Status',
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16)),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text('Request: ${r['serviceName']}',
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: AppColors.muted)),
+                    const SizedBox(height: 16),
+                    Text('New Status',
                         style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
+                    ...[
+                      'submitted',
+                      'pending_review',
+                      'processing',
+                      'approved',
+                      'ready_for_pickup',
+                      'completed',
+                      'returned',
+                      'rejected',
+                    ].map((s) {
+                      final style      = _getStatusStyle(s);
+                      final sColor     = style['color'] as Color;
+                      final sLabel     = style['label'] as String;
+                      final isSelected = selectedStatus == s;
+                      return GestureDetector(
+                        onTap: () =>
+                            setInner(() => selectedStatus = s),
+                        child: AnimatedContainer(
+                          duration: const Duration(
+                              milliseconds: 150),
+                          margin:
+                              const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? sColor
+                                    .withValues(alpha: 0.10)
+                                : const Color(0xFFF7F8FC),
+                            borderRadius:
+                                BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected
+                                  ? sColor.withValues(
+                                      alpha: 0.40)
+                                  : const Color(0xFFEEEEEE),
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8, height: 8,
+                                decoration: BoxDecoration(
+                                    color: sColor,
+                                    shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(sLabel,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                          color: isSelected
+                                              ? sColor
+                                              : const Color(
+                                                  0xFF444444),
+                                        )),
+                                    if (s == 'returned')
+                                      Text(
+                                        'Sends request back to citizen for correction',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            color: AppColors.muted),
+                                      ),
+                                    if (s == 'rejected')
+                                      Text(
+                                        'Permanently rejects the request',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            color: AppColors.muted),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected) ...[
+                                const Spacer(),
+                                Icon(
+                                    Icons.check_circle_rounded,
+                                    color: sColor,
+                                    size: 16),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 8),
+
+                    // Required reason for returned / rejected
+                    if (selectedStatus == 'returned' ||
+                        selectedStatus == 'rejected') ...[
+                      Row(children: [
+                        Text(
+                          selectedStatus == 'returned'
+                              ? 'Return Reason'
+                              : 'Rejection Reason',
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(' *',
+                            style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: AppColors.danger,
+                                fontWeight: FontWeight.w700)),
+                      ]),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: reasonController,
+                        maxLines: 3,
+                        style: GoogleFonts.inter(fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: selectedStatus == 'returned'
+                              ? 'Explain what the citizen needs to fix...'
+                              : 'Explain why this request is rejected...',
+                          hintStyle: GoogleFonts.inter(
+                              color: AppColors.muted,
+                              fontSize: 12),
+                          filled: true,
+                          fillColor: const Color(0xFFF7F8FC),
+                          contentPadding:
+                              const EdgeInsets.all(12),
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                                color: Color(0xFFEEEEEE)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                                color: Color(0xFFEEEEEE)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                                color: AppColors.primary,
+                                width: 1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'This reason will be visible to the citizen.',
+                        style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: AppColors.muted),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    if (selectedStatus == 'completed') ...[
+                      Text('Final Document URL (optional)',
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: finalDocController,
+                        style: GoogleFonts.inter(fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'https://...',
+                          hintStyle: GoogleFonts.inter(
+                              color: AppColors.muted,
+                              fontSize: 12),
+                          filled: true,
+                          fillColor: const Color(0xFFF7F8FC),
+                          contentPadding:
+                              const EdgeInsets.all(12),
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                                color: Color(0xFFEEEEEE)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                                color: Color(0xFFEEEEEE)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                                color: AppColors.primary,
+                                width: 1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    Text('Internal Note (optional)',
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
                     TextField(
-                      controller: finalDocController,
+                      controller: noteController,
+                      maxLines: 2,
                       style: GoogleFonts.inter(fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: 'https://...',
+                        hintText: 'Add an internal note...',
                         hintStyle: GoogleFonts.inter(
                             color: AppColors.muted,
                             fontSize: 12),
@@ -2007,104 +2064,73 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
                   ],
-                  Text('Note (optional)',
-                      style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: noteController,
-                    maxLines: 2,
-                    style: GoogleFonts.inter(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Add a note...',
-                      hintStyle: GoogleFonts.inter(
-                          color: AppColors.muted, fontSize: 12),
-                      filled: true,
-                      fillColor: const Color(0xFFF7F8FC),
-                      contentPadding:
-                          const EdgeInsets.all(12),
-                      border: OutlineInputBorder(
-                        borderRadius:
-                            BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                            color: Color(0xFFEEEEEE)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius:
-                            BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                            color: Color(0xFFEEEEEE)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius:
-                            BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                            color: AppColors.primary,
-                            width: 1.5),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel',
-                  style: GoogleFonts.inter(
-                      color: AppColors.muted)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final note     = noteController.text.trim();
-                final finalDoc =
-                    finalDocController.text.trim();
-                Navigator.pop(ctx);
-                await _updateStatus(r['id'] as String,
-                    selectedStatus, note, finalDoc);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Cancel',
+                    style: GoogleFonts.inter(
+                        color: AppColors.muted)),
               ),
-              child: Text('Update',
-                  style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (reasonRequired &&
+                      reasonController.text.trim().isEmpty) {
+                    _showSnack(
+                        'Please provide a reason before '
+                        '${selectedStatus == 'returned' ? 'returning' : 'rejecting'} '
+                        'the request.',
+                        AppColors.warning);
+                    return;
+                  }
+                  final note     = noteController.text.trim();
+                  final finalDoc = finalDocController.text.trim();
+                  final reason   = reasonController.text.trim();
+                  Navigator.pop(ctx);
+                  await _updateStatus(
+                    r['id'] as String,
+                    selectedStatus,
+                    note,
+                    finalDoc,
+                    reason,
+                    r['userId'] as String,
+                    r['trackingId'] as String,
+                    r['serviceName'] as String,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Text('Update',
+                    style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  // ΓöÇΓöÇ _updateStatus with citizen notification ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Update status + citizen notification ───────────────────────────────────
   Future<void> _updateStatus(
-      String requestId,
-      String status,
-      String note,
-      String finalDocUrl) async {
+    String requestId,
+    String status,
+    String note,
+    String finalDocUrl,
+    String reason,
+    String userId,
+    String trackingId,
+    String serviceName,
+  ) async {
     try {
-      // Get request data first
-      final reqDoc = await FirebaseFirestore.instance
-          .collection('requests')
-          .doc(requestId)
-          .get();
-      final userId =
-          reqDoc.data()?['userId']?.toString() ?? '';
-      final serviceName =
-          reqDoc.data()?['serviceName']?.toString() ??
-              'your request';
-      final trackingId =
-          reqDoc.data()?['trackingId']?.toString() ?? '';
-
-      // Build update payload
       final Map<String, dynamic> updateData = {
         'status':    status,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -2118,6 +2144,14 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         ]),
       };
 
+      if (status == 'returned' && reason.isNotEmpty) {
+        updateData['returnReason']    = reason;
+        updateData['rejectionReason'] = '';
+      }
+      if (status == 'rejected' && reason.isNotEmpty) {
+        updateData['rejectionReason'] = reason;
+        updateData['returnReason']    = '';
+      }
       if (status == 'completed' && finalDocUrl.isNotEmpty) {
         updateData['finalDocumentUrl'] = finalDocUrl;
       }
@@ -2127,7 +2161,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
           .doc(requestId)
           .update(updateData);
 
-      // ΓöÇΓöÇ Send notification to citizen ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       if (userId.isNotEmpty) {
         String notifTitle = 'Request Update';
         String notifBody  =
@@ -2140,31 +2173,28 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
             notifBody  =
                 'Your request ($trackingId) for $serviceName '
                 'is now being reviewed by our staff.';
-            notifType  = 'status_update';
             break;
           case 'processing':
             notifTitle = 'Request Being Processed';
             notifBody  =
                 'Your request ($trackingId) for $serviceName '
                 'is currently being processed.';
-            notifType  = 'status_update';
             break;
           case 'approved':
-            notifTitle = 'Request Approved Γ£ô';
+            notifTitle = 'Request Approved ✔';
             notifBody  =
                 'Your request ($trackingId) for $serviceName '
                 'has been approved and is being finalized.';
-            notifType  = 'status_update';
             break;
           case 'ready_for_pickup':
-            notifTitle = 'Ready for Pick Up ≡ƒÄë';
+            notifTitle = 'Ready for Pick Up 📋';
             notifBody  =
                 'Your document for $serviceName ($trackingId) '
                 'is ready. Please visit City Hall to claim it.';
             notifType  = 'received';
             break;
           case 'completed':
-            notifTitle = 'Request Completed Γ£à';
+            notifTitle = 'Request Completed ✅';
             notifBody  = finalDocUrl.isNotEmpty
                 ? 'Your request ($trackingId) is complete. '
                   'Your document is available for download.'
@@ -2172,21 +2202,28 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   'has been completed successfully.';
             notifType  = 'completed';
             break;
-          case 'rejected':
-            notifTitle = 'Action Required';
-            notifBody  = note.isNotEmpty
-                ? 'Your request ($trackingId) could not be '
-                  'processed. Reason: $note'
+          case 'returned':
+            notifTitle = 'Action Required – Request Returned';
+            notifBody  = reason.isNotEmpty
+                ? 'Your request ($trackingId) has been returned. '
+                  'Reason: $reason. Please update and resubmit.'
                 : 'Your request ($trackingId) for $serviceName '
-                  'requires attention. Please contact City Hall.';
+                  'has been returned. Please review and resubmit.';
+            notifType  = 'action_required';
+            break;
+          case 'rejected':
+            notifTitle = 'Request Rejected';
+            notifBody  = reason.isNotEmpty
+                ? 'Your request ($trackingId) was rejected. '
+                  'Reason: $reason'
+                : 'Your request ($trackingId) for $serviceName '
+                  'could not be processed. Please contact City Hall.';
             notifType  = 'action_required';
             break;
           default:
-            notifTitle = 'Request Update';
-            notifBody  =
+            notifBody =
                 'Your request ($trackingId) status has been '
                 'updated to ${_getStatusStyle(status)['label']}.';
-            notifType  = 'status_update';
         }
 
         await FirebaseFirestore.instance
@@ -2203,8 +2240,12 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       }
 
       if (mounted) {
-        _showSnack('Status updated successfully Γ£ô',
-            AppColors.success);
+        _showSnack(
+          status == 'returned'
+              ? 'Request returned to citizen ✔'
+              : 'Status updated successfully ✔',
+          AppColors.success,
+        );
         _loadData();
       }
     } catch (e) {
@@ -2214,7 +2255,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     }
   }
 
-  // ΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Helpers ────────────────────────────────────────────────────────────────
   void _showSnack(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -2231,7 +2272,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     );
   }
 
-  // ΓöÇΓöÇ Status styles ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   Map<String, dynamic> _getStatusStyle(String status) {
     switch (status) {
       case 'submitted':
@@ -2273,6 +2313,12 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
           'color': const Color(0xFF10B981),
           'icon':  Icons.check_circle_rounded,
         };
+      case 'returned':
+        return {
+          'label': 'Returned',
+          'color': const Color(0xFFF97316),
+          'icon':  Icons.undo_rounded,
+        };
       case 'rejected':
         return {
           'label': 'Rejected',
@@ -2289,7 +2335,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   }
 
   String _fmtTs(Timestamp? ts) {
-    if (ts == null) return 'ΓÇö';
+    if (ts == null) return '—';
     final d = ts.toDate();
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -2300,4 +2346,28 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
 
   String _fmtShort(DateTime d) =>
       '${d.month}/${d.day}/${d.year}';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  _MergedQuerySnapshot
+//
+//  A minimal QuerySnapshot-compatible wrapper that lets us pass merged +
+//  deduplicated document lists from two separate Firestore queries into the
+//  same processing code that expects a QuerySnapshot.
+// ─────────────────────────────────────────────────────────────────────────────
+class _MergedQuerySnapshot implements QuerySnapshot {
+  final List<QueryDocumentSnapshot> _docs;
+  _MergedQuerySnapshot(this._docs);
+
+  @override
+  List<QueryDocumentSnapshot> get docs => _docs;
+
+  @override
+  List<DocumentChange> get docChanges => [];
+
+  @override
+  SnapshotMetadata get metadata => throw UnimplementedError();
+
+  @override
+  int get size => _docs.length;
 }
