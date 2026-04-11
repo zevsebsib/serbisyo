@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
+import '../helpers/status_helper.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -85,10 +86,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           d.data()['role'] == 'admin').length;
       _totalDepartments = departments.length;
 
-      _pendingRequests = requests.where((d) =>
-          d.data()['status'] == 'pending').length;
-      _inProgress = requests.where((d) =>
-          d.data()['status'] == 'in_progress').length;
+      _pendingRequests = requests.where((d) {
+        final status = d.data()['status'];
+        return status == 'submitted' ||
+            status == 'pending' ||
+            status == 'pending_review';
+      }).length;
+      _inProgress = requests.where((d) {
+        final status = d.data()['status'];
+        return status == 'in_progress' ||
+            status == 'processing' ||
+            status == 'approved' ||
+            status == 'ready' ||
+            status == 'ready_for_pickup';
+      }).length;
       _completed = requests.where((d) =>
           d.data()['status'] == 'completed').length;
 
@@ -107,7 +118,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return {
           'id':          d.id,
           'serviceName': data['serviceName'] ?? 'Service Request',
-          'status':      data['status'] ?? 'pending',
+          'status':      data['status'] ?? 'submitted',
           'createdAt':   data['createdAt'],
           'trackingId':  data['trackingId'] ?? '',
         };
@@ -116,48 +127,90 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _loadAdminData(String uid) async {
-    try {
-      final assigned = await FirebaseFirestore.instance
+  try {
+    // ── FIX: Dashboard now uses same logic as admin_requests_screen ──────
+    // Gets staff's department first, then runs two queries (assignedTo + 
+    // department) and merges them — same as My Requests screen so counts match.
+
+    final adminDoc = await FirebaseFirestore.instance
+        .collection('admin').doc(uid).get();
+    final adminData = adminDoc.data() ?? {};
+
+    // Read department — handle both lowercase and capital D field names
+    final staffDepartment =
+        (adminData['department'] as String?)?.trim().isNotEmpty == true
+            ? (adminData['department'] as String).trim()
+            : (adminData['Department'] as String?)?.trim() ?? '';
+
+    final today      = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+
+    // Query 1: directly assigned to this staff member
+    final assignedSnap = await FirebaseFirestore.instance
+        .collection('requests')
+        .where('assignedTo', isEqualTo: uid)
+        .get();
+
+    // Query 2: routed to staff's department
+    List<QueryDocumentSnapshot> deptDocs = [];
+    if (staffDepartment.isNotEmpty) {
+      final deptSnap = await FirebaseFirestore.instance
           .collection('requests')
-          .where('assignedTo', isEqualTo: uid)
+          .where('department', isEqualTo: staffDepartment)
           .get();
+      deptDocs = deptSnap.docs;
+    }
 
-      final today = DateTime.now();
-      final startOfDay = DateTime(today.year, today.month, today.day);
+    // Merge and deduplicate by document ID
+    final seen   = <String>{};
+    final merged = <QueryDocumentSnapshot>[];
+    for (final doc in [...assignedSnap.docs, ...deptDocs]) {
+      if (seen.add(doc.id)) merged.add(doc);
+    }
 
-      _myAssigned = assigned.docs.length;
-      _myPending  = assigned.docs.where((d) =>
-          d.data()['status'] == 'pending' ||
-          d.data()['status'] == 'in_progress').length;
-      _myRejected = assigned.docs.where((d) =>
-          d.data()['status'] == 'rejected').length;
-      _myCompletedToday = assigned.docs.where((d) {
-        final status = d.data()['status'];
-        final ts     = d.data()['updatedAt'] as Timestamp?;
-        if (status != 'completed' || ts == null) return false;
-        return ts.toDate().isAfter(startOfDay);
-      }).length;
+    _myAssigned = merged.length;
+    _myPending  = merged.where((d) {
+      final s = (d.data() as Map<String, dynamic>)['status'];
+      return s == 'pending' ||
+          s == 'submitted' ||
+          s == 'pending_review' ||
+          s == 'returned';
+    }).length;
+    _myRejected = merged.where((d) =>
+        (d.data() as Map<String, dynamic>)['status'] == 'rejected').length;
+    _myCompletedToday = merged.where((d) {
+      final data   = d.data() as Map<String, dynamic>;
+      final status = data['status'];
+      final ts     = data['updatedAt'] as Timestamp?;
+      if (status != 'completed' || ts == null) return false;
+      return ts.toDate().isAfter(startOfDay);
+    }).length;
 
-      final sorted = assigned.docs.toList()
-        ..sort((a, b) {
-          final aTime = a.data()['updatedAt'] ?? a.data()['createdAt'];
-          final bTime = b.data()['updatedAt'] ?? b.data()['createdAt'];
-          if (aTime == null || bTime == null) return 0;
-          return (bTime as Timestamp).compareTo(aTime as Timestamp);
-        });
+    // Recent requests — sort by updatedAt/createdAt descending
+    final sorted = List<QueryDocumentSnapshot>.from(merged)
+      ..sort((a, b) {
+        final aData  = a.data() as Map<String, dynamic>;
+        final bData  = b.data() as Map<String, dynamic>;
+        final aTime  = aData['updatedAt'] ?? aData['createdAt'];
+        final bTime  = bData['updatedAt'] ?? bData['createdAt'];
+        if (aTime == null || bTime == null) return 0;
+        return (bTime as Timestamp).compareTo(aTime as Timestamp);
+      });
 
-      _myRecentRequests = sorted.take(6).map((d) {
-        final data = d.data();
-        return {
-          'id':          d.id,
-          'serviceName': data['serviceName'] ?? 'Service Request',
-          'status':      data['status'] ?? 'pending',
-          'updatedAt':   data['updatedAt'] ?? data['createdAt'],
-          'trackingId':  data['trackingId'] ?? '',
-        };
-      }).toList();
-    } catch (_) {}
+    _myRecentRequests = sorted.take(6).map((d) {
+      final data = d.data() as Map<String, dynamic>;
+      return {
+        'id':          d.id,
+        'serviceName': data['serviceName'] ?? 'Service Request',
+        'status':      data['status'] ?? 'submitted',
+        'updatedAt':   data['updatedAt'] ?? data['createdAt'],
+        'trackingId':  data['trackingId'] ?? '',
+      };
+    }).toList();
+  } catch (e) {
+    debugPrint('Dashboard admin data error: $e');
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -623,7 +676,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildActivityItem(Map<String, dynamic> r) {
     final status    = r['status'] as String;
-    final statusMap = _getStatusStyle(status);
+    final statusMap = getStatusStyle(status);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -958,35 +1011,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Map<String, dynamic> _getStatusStyle(String status) {
-    switch (status) {
-      case 'completed':
-        return {
-          'label': 'Completed',
-          'color': const Color(0xFF10B981),
-          'icon':  Icons.check_circle_rounded,
-        };
-      case 'in_progress':
-        return {
-          'label': 'In Progress',
-          'color': const Color(0xFF3B82F6),
-          'icon':  Icons.sync_rounded,
-        };
-      case 'rejected':
-        return {
-          'label': 'Rejected',
-          'color': const Color(0xFFEF4444),
-          'icon':  Icons.cancel_rounded,
-        };
-      case 'pending':
-      default:
-        return {
-          'label': 'Pending',
-          'color': const Color(0xFFF59E0B),
-          'icon':  Icons.hourglass_empty_rounded,
-        };
-    }
-  }
+  // Status styles now use shared helper from status_helper.dart
+  // This was previously _getStatusStyle(status) with 4 cases
 
   String _formatDate(DateTime date) {
     const months = [

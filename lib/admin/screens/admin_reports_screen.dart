@@ -70,9 +70,21 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         final status = (data['status'] ?? '').toString().toLowerCase();
 
         if (status == 'completed')  completed++;
-        if (status == 'pending')    pending++;
-        if (status == 'processing') processing++;
-        if (status == 'rejected')   rejected++;
+        if (status == 'submitted' ||
+            status == 'pending' ||
+            status == 'pending_review') {
+          pending++;
+        }
+        if (status == 'processing' ||
+            status == 'in_progress' ||
+            status == 'approved' ||
+            status == 'ready' ||
+            status == 'ready_for_pickup') {
+          processing++;
+        }
+        if (status == 'rejected' || status == 'returned') {
+          rejected++;
+        }
 
         final ts = data['createdAt'];
         if (ts is Timestamp) {

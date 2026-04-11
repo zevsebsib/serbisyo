@@ -60,12 +60,37 @@ class _AdminNotificationsScreenState
         'email':    d.data()['email'] ?? '',
       }).toList();
 
-      // Load all notifications via collection group
-      final notifSnap = await FirebaseFirestore.instance
-          .collectionGroup('items')
-          .orderBy('createdAt', descending: true)
-          .limit(200)
-          .get();
+      // Load notifications per citizen to avoid collection-group permission
+      // issues caused by unrelated "items" subcollections.
+      final List<QueryDocumentSnapshot> notifDocs = [];
+      for (final c in _citizens) {
+        final uid = c['uid'] as String? ?? '';
+        if (uid.isEmpty) continue;
+
+        try {
+          final userNotifSnap = await FirebaseFirestore.instance
+              .collection('notifications')
+              .doc(uid)
+              .collection('items')
+              .orderBy('createdAt', descending: true)
+              .limit(100)
+              .get();
+          notifDocs.addAll(userNotifSnap.docs);
+        } catch (e) {
+          debugPrint('Notif read skipped for $uid: $e');
+        }
+      }
+
+      notifDocs.sort((a, b) {
+        final aTs = (a.data() as Map<String, dynamic>)['createdAt']
+            as Timestamp?;
+        final bTs = (b.data() as Map<String, dynamic>)['createdAt']
+            as Timestamp?;
+        if (aTs == null || bTs == null) return 0;
+        return bTs.compareTo(aTs);
+      });
+
+      final topDocs = notifDocs.take(200).toList();
 
       // Build userId -> name map
       final Map<String, String> nameMap = {};
@@ -74,8 +99,8 @@ class _AdminNotificationsScreenState
             c['fullName'] as String;
       }
 
-      _allNotifs = notifSnap.docs.map((d) {
-        final data   = d.data();
+      _allNotifs = topDocs.map((d) {
+        final data = d.data() as Map<String, dynamic>? ?? const {};
         final uid    = d.reference.parent.parent?.id ?? '';
         return {
           'id':        d.id,
@@ -150,7 +175,10 @@ class _AdminNotificationsScreenState
       }
     }
     await batch.commit();
-    _loadData();
+    for (final n in _allNotifs) {
+      n['isRead'] = true;
+    }
+    _applyFilters();
   }
 
   // ── Send manual notification 
@@ -349,7 +377,7 @@ class _AdminNotificationsScreenState
                                 setInner(
                                     () => sending = true);
                                 try {
-                                  await FirebaseFirestore
+                                    final createdRef = await FirebaseFirestore
                                       .instance
                                       .collection('notifications')
                                       .doc(selectedUid)
@@ -361,13 +389,30 @@ class _AdminNotificationsScreenState
                                     'isRead':    false,
                                     'createdAt': FieldValue.serverTimestamp(),
                                   });
-                                  if (mounted) {
+                                  if (mounted && ctx.mounted) {
                                     final nav = Navigator.of(ctx);
                                     nav.pop();
+                                    final citizen = _citizens.firstWhere(
+                                      (c) => c['uid'] == selectedUid,
+                                      orElse: () => const {
+                                        'fullName': 'Citizen'
+                                      },
+                                    );
+                                    _allNotifs.insert(0, {
+                                      'id': 'local_${DateTime.now().millisecondsSinceEpoch}',
+                                      'uid': selectedUid,
+                                      'citizen': citizen['fullName'] ?? 'Citizen',
+                                      'title': titleCtrl.text.trim(),
+                                      'body': bodyCtrl.text.trim(),
+                                      'type': 'manual',
+                                      'isRead': false,
+                                      'createdAt': Timestamp.now(),
+                                      'ref': createdRef,
+                                    });
+                                    _applyFilters();
                                     _showSnack(
                                         'Notification sent ✓',
                                         AppColors.success);
-                                    _loadData();
                                   }
                                 } catch (e) {
                                   setInner(() =>

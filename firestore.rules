@@ -47,7 +47,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         resource.data.userId == request.auth.uid ||
         isSuperAdmin() ||
-        (isAdminStaff() && resource.data.assignedTo == request.auth.uid)
+        isAdminStaff()
       );
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (

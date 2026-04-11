@@ -36,7 +36,7 @@ class _ServiceCategoryDetailScreenState
   // Category display titles
   static const Map<String, Map<String, String>> _catMeta = {
     'mayor': {
-      'title':      "City - Admin Office",
+      'title':      "City Adminnistration Office",
       'department': 'City Administration Office',
     },
     'civil': {
@@ -44,7 +44,7 @@ class _ServiceCategoryDetailScreenState
       'department': 'Office of the City Civil Registrar',
     },
     'community': {
-      'title':      'Office of the Community Affairs',
+      'title':      'Office of the City Community Affairs',
       'department': 'Office of the City Community Affairs',
     },
   };
@@ -81,6 +81,7 @@ class _ServiceCategoryDetailScreenState
             'name':       d.data()['name'] ?? '',
             'department': d.data()['department'] ??
                 _department,
+            'departmentId': d.data()['departmentId'] ?? '',
             'categoryId': widget.categoryId,
           }).toList();
 
@@ -150,18 +151,19 @@ class _ServiceCategoryDetailScreenState
                                   context,
                                   s['name'] as String,
                                   s['department'] as String,
+                                  s['departmentId'] as String,
                                   s['categoryId'] as String)),
                           const SizedBox(height: 120),
                         ],
                       ),
                     ),
       bottomNavigationBar:
-          const BottomNav(selectedIndex: 2),
+          const BottomNav(selectedIndex: 1),
     );
   }
 
-  Widget _buildOptionItem(BuildContext context,
-      String name, String dept, String catId) {
+    Widget _buildOptionItem(BuildContext context,
+      String name, String dept, String deptId, String catId) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Material(
@@ -176,6 +178,7 @@ class _ServiceCategoryDetailScreenState
                 'serviceName': name,
                 'category':    catId,
                 'department':  dept,
+                'departmentId': deptId,
               },
             );
           },

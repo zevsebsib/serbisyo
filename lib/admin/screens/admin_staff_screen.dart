@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
+import '../helpers/status_helper.dart';
 
 class AdminStaffScreen extends StatefulWidget {
   const AdminStaffScreen({super.key});
@@ -77,16 +78,18 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
       _allStaff = await Future.wait(
         staffSnap.docs.map((d) async {
           final data   = d.data();
-          final deptId =
-              data['departmentId']?.toString() ?? '';
+          final deptId = data['departmentId']?.toString() ?? '';
+          final existingDeptName = (data['department'] as String?)?.isNotEmpty == true
+              ? data['department'] as String
+              : (data['department'] as String?) ?? '';
+          final resolvedDepartment = deptNames[deptId] ?? existingDeptName;
           int assignedCount = 0;
           try {
-            final reqSnap =
-                await FirebaseFirestore.instance
-                    .collection('requests')
-                    .where('assignedTo', isEqualTo: d.id)
-                    .get();
-            assignedCount = reqSnap.docs.length;
+            final staffRequests = await _loadRequestsForStaff(
+              uid: d.id,
+              department: resolvedDepartment,
+            );
+            assignedCount = staffRequests.length;
           } catch (_) {}
 
           return {
@@ -94,8 +97,10 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
             'fullName':      data['fullName'] ?? 'Unknown',
             'email':         data['email'] ?? '',
             'phone':         data['phone'] ?? '',
-            'department':    deptNames[deptId] ?? '—',
-            'departmentId':  deptId,
+            'department':   resolvedDepartment.isNotEmpty
+                ? resolvedDepartment
+                : '—',
+            'departmentId': deptId,
             'isActive':      data['isActive'] ?? false,
             'createdAt':     data['createdAt'],
             'assignedCount': assignedCount,
@@ -117,6 +122,57 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
       debugPrint('Error: $e');
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<List<Map<String, dynamic>>> _loadRequestsForStaff({
+    required String uid,
+    required String department,
+  }) async {
+    final byId = <String, Map<String, dynamic>>{};
+
+    final assignedSnap = await FirebaseFirestore.instance
+        .collection('requests')
+        .where('assignedTo', isEqualTo: uid)
+        .get();
+
+    for (final d in assignedSnap.docs) {
+      final data = d.data();
+      byId[d.id] = {
+        'id':          d.id,
+        'trackingId':  data['trackingId'] ?? '',
+        'serviceName': data['serviceName'] ?? 'Request',
+        'status':      data['status'] ?? 'submitted',
+        'createdAt':   data['createdAt'],
+      };
+    }
+
+    final dept = department.trim();
+    if (dept.isNotEmpty && dept != '—') {
+      final deptSnap = await FirebaseFirestore.instance
+          .collection('requests')
+          .where('department', isEqualTo: dept)
+          .get();
+
+      for (final d in deptSnap.docs) {
+        final data = d.data();
+        byId[d.id] = {
+          'id':          d.id,
+          'trackingId':  data['trackingId'] ?? '',
+          'serviceName': data['serviceName'] ?? 'Request',
+          'status':      data['status'] ?? 'submitted',
+          'createdAt':   data['createdAt'],
+        };
+      }
+    }
+
+    final requests = byId.values.toList();
+    requests.sort((a, b) {
+      final aTs = a['createdAt'] as Timestamp?;
+      final bTs = b['createdAt'] as Timestamp?;
+      if (aTs == null || bTs == null) return 0;
+      return bTs.compareTo(aTs);
+    });
+    return requests;
   }
 
   void _applySearch() {
@@ -1061,21 +1117,10 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
       Map<String, dynamic> s) async {
     List<Map<String, dynamic>> requests = [];
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('requests')
-          .where('assignedTo', isEqualTo: s['uid'])
-          .orderBy('createdAt', descending: true)
-          .get();
-      requests = snap.docs.map((d) {
-        final data = d.data();
-        return {
-          'id':          d.id,
-          'trackingId':  data['trackingId'] ?? '',
-          'serviceName': data['serviceName'] ?? 'Request',
-          'status':      data['status'] ?? 'pending',
-          'createdAt':   data['createdAt'],
-        };
-      }).toList();
+      requests = await _loadRequestsForStaff(
+        uid: s['uid'] as String,
+        department: (s['department'] as String?) ?? '',
+      );
     } catch (_) {}
 
     if (!mounted) return;
@@ -1235,16 +1280,32 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
                                       requests.length,
                                       const Color(0xFF5C6BC0)),
                                   _summaryItem('Pending',
-                                      requests.where((r) => r['status'] == 'pending').length,
+                                      requests.where((r) {
+                                        final status = r['status'] as String;
+                                        return status == 'submitted' ||
+                                            status == 'pending' ||
+                                            status == 'pending_review';
+                                      }).length,
                                       const Color(0xFFF59E0B)),
                                   _summaryItem('In Progress',
-                                      requests.where((r) => r['status'] == 'in_progress').length,
+                                      requests.where((r) {
+                                        final status = r['status'] as String;
+                                        return status == 'in_progress' ||
+                                            status == 'processing' ||
+                                            status == 'approved' ||
+                                            status == 'ready' ||
+                                            status == 'ready_for_pickup';
+                                      }).length,
                                       const Color(0xFF3B82F6)),
                                   _summaryItem('Completed',
                                       requests.where((r) => r['status'] == 'completed').length,
                                       const Color(0xFF10B981)),
-                                  _summaryItem('Rejected',
-                                      requests.where((r) => r['status'] == 'rejected').length,
+                                  _summaryItem('Returned/Rejected',
+                                      requests.where((r) {
+                                        final status = r['status'] as String;
+                                        return status == 'returned' ||
+                                            status == 'rejected';
+                                      }).length,
                                       const Color(0xFFEF4444)),
                                 ],
                               ),
@@ -1512,9 +1573,12 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
         'updatedAt':    FieldValue.serverTimestamp(),
       });
       if (mounted) {
+        _patchStaffLocal(uid, {
+          'departmentId': deptId ?? '',
+          'department': deptName.isNotEmpty ? deptName : '—',
+        });
         _showSnack('Department updated ✓',
             AppColors.success);
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1534,10 +1598,10 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
         'approvedAt': FieldValue.serverTimestamp(),
       });
       if (mounted) {
+        _setStaffActiveLocal(uid, true);
         _showSnack(
             '$name\'s access approved ✓',
             AppColors.success);
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1549,11 +1613,13 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
   Future<void> _toggleActive(
       String uid, bool current) async {
     try {
+      final next = !current;
       await FirebaseFirestore.instance
           .collection('admin')
           .doc(uid)
-          .update({'isActive': !current});
+          .update({'isActive': next});
       if (mounted) {
+        _setStaffActiveLocal(uid, next);
         _showSnack(
           current
               ? 'Account deactivated'
@@ -1562,13 +1628,46 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
               ? AppColors.warning
               : AppColors.success,
         );
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
         _showSnack('Failed: $e', AppColors.danger);
       }
     }
+  }
+
+  void _setStaffActiveLocal(String uid, bool isActive) {
+    final idx = _allStaff.indexWhere((s) => s['uid'] == uid);
+    if (idx == -1) return;
+
+    _allStaff[idx] = {
+      ..._allStaff[idx],
+      'isActive': isActive,
+    };
+
+    _activeStaff =
+        _allStaff.where((s) => s['isActive'] == true).toList();
+    _pendingStaff =
+        _allStaff.where((s) => s['isActive'] == false).toList();
+
+    _applySearch();
+  }
+
+  void _patchStaffLocal(String uid, Map<String, dynamic> patch) {
+    final idx = _allStaff.indexWhere((s) => s['uid'] == uid);
+    if (idx == -1) return;
+
+    _allStaff[idx] = {
+      ..._allStaff[idx],
+      ...patch,
+    };
+
+    _activeStaff =
+        _allStaff.where((s) => s['isActive'] == true).toList();
+    _pendingStaff =
+        _allStaff.where((s) => s['isActive'] == false).toList();
+
+    _applySearch();
   }
 
   void _confirmDelete(String uid, String name) {
@@ -1639,8 +1738,13 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
           .doc(uid)
           .delete();
       if (mounted) {
+        _allStaff.removeWhere((s) => s['uid'] == uid);
+        _activeStaff =
+            _allStaff.where((s) => s['isActive'] == true).toList();
+        _pendingStaff =
+            _allStaff.where((s) => s['isActive'] == false).toList();
+        _applySearch();
         _showSnack('Staff deleted', AppColors.danger);
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1739,8 +1843,9 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
 
   Widget _requestItem(Map<String, dynamic> r) {
     final status = r['status'] as String;
-    final color  = _statusColor(status);
-    final label  = _statusLabel(status);
+    final statusStyle = getStatusStyle(status);
+    final color  = statusStyle['color'] as Color;
+    final label  = statusStyle['label'] as String;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -1835,23 +1940,8 @@ class _AdminStaffScreenState extends State<AdminStaffScreen>
     return name.isNotEmpty ? name[0].toUpperCase() : '?';
   }
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'completed':   return const Color(0xFF10B981);
-      case 'in_progress': return const Color(0xFF3B82F6);
-      case 'rejected':    return const Color(0xFFEF4444);
-      default:            return const Color(0xFFF59E0B);
-    }
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'completed':   return 'Completed';
-      case 'in_progress': return 'In Progress';
-      case 'rejected':    return 'Rejected';
-      default:            return 'Pending';
-    }
-  }
+  // Status styles now use shared helper from status_helper.dart
+  // Previously had _statusColor() and _statusLabel() methods with 4 cases each
 
   String _fmtTs(Timestamp? ts) {
     if (ts == null) return '—';

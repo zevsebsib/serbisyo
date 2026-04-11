@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:serbisyo_alisto/helpers/request_status.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bottom_nav.dart';
 
@@ -29,19 +30,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // Previously 'Pending'.toLowerCase() == 'pending' only — missed
   // 'submitted' and 'pending_review' which are the real active statuses.
   List<String> _statusValuesFor(String filter) {
-    switch (filter) {
-      case 'Pending':
-        // Covers: newly submitted requests AND requests awaiting staff review
-        return ['submitted', 'pending', 'pending_review', 'approved'];
-      case 'Processing':
-        return ['processing', 'in_progress', 'ready_for_pickup', 'ready'];
-      case 'Completed':
-        return ['completed'];
-      case 'Rejected':
-        return ['rejected'];
-      default:
-        return []; // 'All' — no filter applied
-    }
+    return requestStatusFilterValues(filter);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -57,64 +46,46 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   // ── FIX: Normalise display label for status values ─────────────────────────
   String _statusLabel(String status) {
-    switch (status.toLowerCase()) {
-      case 'submitted':        return 'Submitted';
-      case 'pending_review':   return 'Pending Review';
-      case 'pending':          return 'Pending';
-      case 'processing':       return 'Processing';
-      case 'in_progress':      return 'Processing';
-      case 'approved':         return 'Approved';
-      case 'ready_for_pickup': return 'Ready for Pick Up';
-      case 'ready':            return 'Ready for Pick Up';
-      case 'completed':        return 'Completed';
-      case 'rejected':         return 'Rejected';
-      default:                 return status;
-    }
+    return requestStatusLabel(status);
   }
 
   Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
+    switch (normalizeRequestStatus(status)) {
       case 'submitted':        return const Color(0xFF5C6BC0);
-      case 'pending_review':
-      case 'pending':          return AppColors.warning;
+      case 'pending_review':   return AppColors.warning;
       case 'approved':         return const Color(0xFF8B5CF6);
       case 'processing':
-      case 'in_progress':      return AppColors.primary;
-      case 'ready_for_pickup':
-      case 'ready':            return AppColors.primary;
+      case 'ready_for_pickup': return AppColors.primary;
       case 'completed':        return AppColors.success;
+      case 'returned':         return const Color(0xFFF97316);
       case 'rejected':         return AppColors.danger;
       default:                 return AppColors.muted;
     }
   }
 
   Color _getStatusBgColor(String status) {
-    switch (status.toLowerCase()) {
+    switch (normalizeRequestStatus(status)) {
       case 'submitted':        return const Color(0xFFEDE7F6);
-      case 'pending_review':
-      case 'pending':          return AppColors.warningLight;
+      case 'pending_review':   return AppColors.warningLight;
       case 'approved':         return const Color(0xFFF3E8FF);
       case 'processing':
-      case 'in_progress':      return AppColors.cardBg;
-      case 'ready_for_pickup':
-      case 'ready':            return AppColors.cardBg;
+      case 'ready_for_pickup': return AppColors.cardBg;
       case 'completed':        return AppColors.successLight;
+      case 'returned':         return const Color(0xFFFFF3E8);
       case 'rejected':         return const Color(0xFFFFEEEE);
       default:                 return AppColors.cardBg;
     }
   }
 
   IconData _getStatusIcon(String status) {
-    switch (status.toLowerCase()) {
+    switch (normalizeRequestStatus(status)) {
       case 'submitted':        return LucideIcons.send;
-      case 'pending_review':
-      case 'pending':          return LucideIcons.clock3;
+      case 'pending_review':   return LucideIcons.clock3;
       case 'approved':         return LucideIcons.thumbsUp;
-      case 'processing':
-      case 'in_progress':      return LucideIcons.loader;
-      case 'ready_for_pickup':
-      case 'ready':            return LucideIcons.packageCheck;
+      case 'processing':       return LucideIcons.loader;
+      case 'ready_for_pickup': return LucideIcons.packageCheck;
       case 'completed':        return LucideIcons.checkCircle2;
+      case 'returned':         return LucideIcons.undo2;
       case 'rejected':         return LucideIcons.xCircle;
       default:                 return LucideIcons.clipboard;
     }

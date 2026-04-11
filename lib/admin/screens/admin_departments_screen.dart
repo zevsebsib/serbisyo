@@ -1190,9 +1190,13 @@ class _AdminDepartmentsScreenState
     String? headId,
   ) async {
     try {
+      final docRef = FirebaseFirestore.instance
+          .collection('departments')
+          .doc();
       await FirebaseFirestore.instance
           .collection('departments')
-          .add({
+          .doc(docRef.id)
+          .set({
         'name':        name,
         'description': description,
         'headId':      headId ?? '',
@@ -1200,8 +1204,18 @@ class _AdminDepartmentsScreenState
         'createdAt':   FieldValue.serverTimestamp(),
       });
       if (mounted) {
+        _allDepartments.insert(0, {
+          'id': docRef.id,
+          'name': name,
+          'description': description,
+          'headId': headId ?? '',
+          'headName': _resolveHeadName(headId),
+          'isActive': true,
+          'createdAt': Timestamp.now(),
+          'staffList': <Map<String, dynamic>>[],
+        });
+        _applySearch();
         _showSnack('Department added ✓', AppColors.success);
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1227,8 +1241,13 @@ class _AdminDepartmentsScreenState
         'updatedAt':   FieldValue.serverTimestamp(),
       });
       if (mounted) {
+        _patchDepartmentLocal(id, {
+          'name': name,
+          'description': description,
+          'headId': headId ?? '',
+          'headName': _resolveHeadName(headId),
+        });
         _showSnack('Department updated ✓', AppColors.success);
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1239,16 +1258,17 @@ class _AdminDepartmentsScreenState
 
   Future<void> _toggleActive(String id, bool current) async {
     try {
+      final next = !current;
       await FirebaseFirestore.instance
           .collection('departments')
           .doc(id)
-          .update({'isActive': !current});
+          .update({'isActive': next});
       if (mounted) {
+        _patchDepartmentLocal(id, {'isActive': next});
         _showSnack(
           current ? 'Department deactivated' : 'Department activated ✓',
           current ? AppColors.warning : AppColors.success,
         );
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1324,8 +1344,9 @@ class _AdminDepartmentsScreenState
           .doc(id)
           .delete();
       if (mounted) {
+        _allDepartments.removeWhere((d) => d['id'] == id);
+        _applySearch();
         _showSnack('Department deleted', AppColors.danger);
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1335,6 +1356,23 @@ class _AdminDepartmentsScreenState
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+  String _resolveHeadName(String? headId) {
+    if (headId == null || headId.isEmpty) return '—';
+    final match = _staffList.where((s) => s['uid'] == headId);
+    if (match.isEmpty) return '—';
+    return match.first['fullName'] as String? ?? '—';
+  }
+
+  void _patchDepartmentLocal(String id, Map<String, dynamic> patch) {
+    final idx = _allDepartments.indexWhere((d) => d['id'] == id);
+    if (idx == -1) return;
+    _allDepartments[idx] = {
+      ..._allDepartments[idx],
+      ...patch,
+    };
+    _applySearch();
+  }
+
   void _showSnack(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

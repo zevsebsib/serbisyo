@@ -17,6 +17,7 @@ import '../widgets/bottom_nav.dart';
 //    categoryId:   'mayor' | 'civil' | 'community'
 //    categoryName: String
 //    department:   String
+//    departmentId: String (departments doc ID)
 //    isActive:     bool
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
       'icon':     LucideIcons.landmark,
       'color':    Color(0xFF5B6AF0),
       'bgColor':  Color(0xFFEEF0FD),
-      'title':    "City - Admin Office",
+      'title':    "City Admininistration Office",
       'subtitle': 'Administrative Division',
     },
     'civil': {
@@ -106,6 +107,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
           'name':       data['name'] ?? '',
           'categoryId': catId,
           'department': data['department'] ?? '',
+          'departmentId': data['departmentId'] ?? '',
         });
       }
 
@@ -195,7 +197,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: const BottomNav(selectedIndex: 2),
+      bottomNavigationBar: const BottomNav(selectedIndex: 1),
     );
   }
 
@@ -553,6 +555,7 @@ class _CategoryCardState extends State<_CategoryCard> {
                         'serviceName': service['name'],
                         'category':    service['categoryId'],
                         'department':  service['department'],
+                        'departmentId': service['departmentId'],
                       },
                     ),
                   );

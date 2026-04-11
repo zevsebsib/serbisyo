@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:serbisyo_alisto/helpers/request_status.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bottom_nav.dart';
 
@@ -92,11 +93,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .listen((snapshot) {
       int pending = 0, processing = 0, done = 0;
       for (final doc in snapshot.docs) {
-        final status = (doc['status'] ?? '').toString().toLowerCase();
-        if (status == 'pending') {
+        final status = (doc['status'] ?? '').toString();
+        if (isPendingStatus(status) || isReturnedStatus(status)) {
           pending++;
-        } else if (status == 'processing') processing++;
-        else if (status == 'completed')  done++;
+        } else if (isProcessingStatus(status)) {
+          processing++;
+        } else if (isCompletedStatus(status)) {
+          done++;
+        }
       }
       if (mounted) {
         setState(() {

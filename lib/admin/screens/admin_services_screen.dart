@@ -14,28 +14,28 @@ const List<Map<String, dynamic>> _seedServices = [
   {
     'name':         'Provision of Consumer Assistance',
     'categoryId':   'mayor',
-    'categoryName': "City - Admin Office",
+    'categoryName': "City Administration Office",
     'department':   'City Administration Office',
     'isActive':     true,
   },
   {
     'name':         'Issuance of Certificate of Good Moral Character',
     'categoryId':   'mayor',
-    'categoryName': "City - Admin Office",
+    'categoryName': "City Administration Office",
     'department':   'City Administration Office',
     'isActive':     true,
   },
   {
     'name':         'Permit for Use of Government Facilities and Equipment',
     'categoryId':   'mayor',
-    'categoryName': "City - Admin Office",
+    'categoryName': "City Administration Office",
     'department':   'City Administration Office',
     'isActive':     true,
   },
   {
     'name':         'Receipt of Complaints',
     'categoryId':   'mayor',
-    'categoryName': "City - Admin Office",
+    'categoryName': "City Administration Office",
     'department':   'City Administration Office',
     'isActive':     true,
   },
@@ -141,13 +141,14 @@ class _AdminServicesScreenState
 
   List<Map<String, dynamic>> _allServices      = [];
   List<Map<String, dynamic>> _filteredServices = [];
+  final Map<String, String>  _deptNameToId     = {};
 
   final _searchController = TextEditingController();
 
   // Category display config
   static const Map<String, Map<String, dynamic>> _categoryConfig = {
     'mayor': {
-      'label': "City - Admin Office",
+      'label': "City Administration Office",
       'color': const Color(0xFF5B6AF0),
       'bg':    const Color(0xFFEEF0FD),
       'icon':  Icons.account_balance_rounded,
@@ -191,6 +192,17 @@ class _AdminServicesScreenState
         _role = adminDoc.data()?['role'] ?? 'admin';
       }
 
+      // Build Department Name -> Department Doc ID lookup.
+      final departmentsSnap = await FirebaseFirestore.instance
+          .collection('departments')
+          .get();
+      _deptNameToId
+        ..clear()
+        ..addEntries(departmentsSnap.docs.map((d) {
+          final name = d.data()['name']?.toString() ?? '';
+          return MapEntry(name, d.id);
+        }).where((e) => e.key.isNotEmpty));
+
       // Check if services collection is empty — seed if so
       final snap = await FirebaseFirestore.instance
           .collection('services')
@@ -214,6 +226,8 @@ class _AdminServicesScreenState
         'categoryId':   d.data()['categoryId'] ?? '',
         'categoryName': d.data()['categoryName'] ?? '',
         'department':   d.data()['department'] ?? '',
+        'departmentId': d.data()['departmentId'] ??
+            _deptNameToId[d.data()['department']?.toString() ?? ''] ?? '',
         'isActive':     d.data()['isActive'] ?? true,
         'createdAt':    d.data()['createdAt'],
       }).toList();
@@ -234,8 +248,10 @@ class _AdminServicesScreenState
         final ref = FirebaseFirestore.instance
             .collection('services')
             .doc();
+        final deptName = service['department']?.toString() ?? '';
         batch.set(ref, {
           ...service,
+          'departmentId': _deptNameToId[deptName] ?? '',
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
@@ -459,7 +475,7 @@ class _AdminServicesScreenState
               value: _categoryFilter,
               items: {
                 'all':       'All Categories',
-                'mayor':     "City - Admin Office",
+                'mayor':     "City Administration Office",
                 'civil':     'Civil Registry',
                 'community': 'Community Affairs',
               },
@@ -889,7 +905,7 @@ class _AdminServicesScreenState
     final formKey = GlobalKey<FormState>();
 
     final categoryOptions = {
-      'mayor':     "City - Admin Office",
+      'mayor':     "City Administration Office",
       'civil':     'Civil Registry',
       'community': 'Community Affairs',
     };
@@ -1133,20 +1149,35 @@ class _AdminServicesScreenState
       String name, String catId, String dept) async {
     try {
       final catConf = _categoryConfig[catId];
+      final docRef = FirebaseFirestore.instance
+          .collection('services')
+          .doc();
       await FirebaseFirestore.instance
           .collection('services')
-          .add({
+          .doc(docRef.id)
+          .set({
         'name':         name,
         'categoryId':   catId,
         'categoryName': catConf?['label'] ?? catId,
         'department':   dept,
+        'departmentId': _deptNameToId[dept] ?? '',
         'isActive':     true,
         'createdAt':    FieldValue.serverTimestamp(),
         'updatedAt':    FieldValue.serverTimestamp(),
       });
       if (mounted) {
+        _allServices.insert(0, {
+          'id': docRef.id,
+          'name': name,
+          'categoryId': catId,
+          'categoryName': catConf?['label'] ?? catId,
+          'department': dept,
+          'departmentId': _deptNameToId[dept] ?? '',
+          'isActive': true,
+          'createdAt': Timestamp.now(),
+        });
+        _applyFilters();
         _showSnack('Service added ✓', AppColors.success);
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1167,12 +1198,19 @@ class _AdminServicesScreenState
         'categoryId':   catId,
         'categoryName': catConf?['label'] ?? catId,
         'department':   dept,
+        'departmentId': _deptNameToId[dept] ?? '',
         'updatedAt':    FieldValue.serverTimestamp(),
       });
       if (mounted) {
+        _patchServiceLocal(id, {
+          'name': name,
+          'categoryId': catId,
+          'categoryName': catConf?['label'] ?? catId,
+          'department': dept,
+          'departmentId': _deptNameToId[dept] ?? '',
+        });
         _showSnack(
             'Service updated ✓', AppColors.success);
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1184,21 +1222,22 @@ class _AdminServicesScreenState
   Future<void> _toggleActive(
       String id, bool current) async {
     try {
+      final next = !current;
       await FirebaseFirestore.instance
           .collection('services')
           .doc(id)
           .update({
-        'isActive':  !current,
+        'isActive':  next,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       if (mounted) {
+        _patchServiceLocal(id, {'isActive': next});
         _showSnack(
           current
               ? 'Service deactivated'
               : 'Service activated ✓',
           current ? AppColors.warning : AppColors.success,
         );
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1272,8 +1311,9 @@ class _AdminServicesScreenState
           .doc(id)
           .delete();
       if (mounted) {
+        _allServices.removeWhere((s) => s['id'] == id);
+        _applyFilters();
         _showSnack('Service deleted', AppColors.danger);
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -1283,6 +1323,17 @@ class _AdminServicesScreenState
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+  void _patchServiceLocal(String id, Map<String, dynamic> patch) {
+    final idx = _allServices.indexWhere((s) => s['id'] == id);
+    if (idx == -1) return;
+    _allServices[idx] = {
+      ..._allServices[idx],
+      ...patch,
+      'updatedAt': Timestamp.now(),
+    };
+    _applyFilters();
+  }
+
   Widget _fieldLabel(String label) => Text(label,
       style: GoogleFonts.inter(
         fontSize: 13,

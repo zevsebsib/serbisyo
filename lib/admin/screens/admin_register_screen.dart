@@ -25,12 +25,9 @@ class _AdminRegisterScreenState
   bool    _submitted   = false;
   String? _error;
 
-  String _selectedDept = 'City Administration Office';
-  final List<String> _departments = [
-    'City Administration Office',
-    'Office of the City Civil Registrar',
-    'Office of the City Community Affairs',
-  ];
+  String _selectedDept = '';
+  final List<String> _departments = [];
+  final Map<String, String> _deptNameToId = {};
 
   late final AnimationController _animCtrl;
   late final Animation<double>   _fadeAnim;
@@ -38,6 +35,7 @@ class _AdminRegisterScreenState
   @override
   void initState() {
     super.initState();
+    _loadDepartments();
     _animCtrl = AnimationController(
         vsync: this,
         duration: const Duration(milliseconds: 600));
@@ -54,6 +52,56 @@ class _AdminRegisterScreenState
     _confirmCtrl.dispose();
     _animCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadDepartments() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('departments')
+          .where('isActive', isEqualTo: true)
+          .get();
+
+      final names = snap.docs
+          .map((d) => d.data()['name']?.toString() ?? '')
+          .where((name) => name.isNotEmpty)
+          .toList()
+        ..sort();
+
+      final nameToId = <String, String>{};
+      for (final d in snap.docs) {
+        final name = d.data()['name']?.toString() ?? '';
+        if (name.isNotEmpty) {
+          nameToId[name] = d.id;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _departments
+          ..clear()
+          ..addAll(names);
+        _deptNameToId
+          ..clear()
+          ..addAll(nameToId);
+        if (_selectedDept.isEmpty && _departments.isNotEmpty) {
+          _selectedDept = _departments.first;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _departments
+          ..clear()
+          ..addAll([
+            'City Administration Office',
+            'Office of the City Civil Registrar',
+            'Office of the City Community Affairs',
+          ]);
+        if (_selectedDept.isEmpty) {
+          _selectedDept = _departments.first;
+        }
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -76,6 +124,10 @@ class _AdminRegisterScreenState
           _error = 'Password must be at least 8 characters.');
       return;
     }
+    if (_selectedDept.isEmpty) {
+      setState(() => _error = 'Please select a department.');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -95,7 +147,7 @@ class _AdminRegisterScreenState
         'email':        email,
         'role':         'admin',
         'department':   _selectedDept,
-        'departmentId': '',
+        'departmentId': _deptNameToId[_selectedDept] ?? '',
         'isActive':     false,
         'createdAt':    FieldValue.serverTimestamp(),
         'updatedAt':    FieldValue.serverTimestamp(),
@@ -715,6 +767,7 @@ class _AdminRegisterScreenState
   }
 
   Widget _deptDropdown() {
+    final hasDept = _departments.isNotEmpty;
     return Container(
       padding: const EdgeInsets.symmetric(
           horizontal: 14, vertical: 2),
@@ -725,22 +778,19 @@ class _AdminRegisterScreenState
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _selectedDept,
+          value: hasDept ? _selectedDept : null,
           isExpanded: true,
+          hint: Text(
+            hasDept ? 'Select department' : 'No departments available',
+            style: GoogleFonts.dmSans(
+              fontSize: 13,
+              color: const Color(0xFF9CA3AF),
+            ),
+          ),
           icon: const Icon(Icons.unfold_more_rounded,
               size: 16, color: Color(0xFF9CA3AF)),
           style: GoogleFonts.dmSans(
               fontSize: 13, color: const Color(0xFF111827)),
-          selectedItemBuilder: (context) => _departments
-              .map((d) => Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(d,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                            fontSize: 13,
-                            color: const Color(0xFF111827))),
-                  ))
-              .toList(),
           items: _departments.map((d) {
             final sel = d == _selectedDept;
             return DropdownMenuItem(
@@ -775,8 +825,9 @@ class _AdminRegisterScreenState
               ),
             );
           }).toList(),
-          onChanged: (v) =>
-              setState(() => _selectedDept = v!),
+          onChanged: hasDept
+              ? (v) => setState(() => _selectedDept = v!)
+              : null,
         ),
       ),
     );

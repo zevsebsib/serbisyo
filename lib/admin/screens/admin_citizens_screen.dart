@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
+import '../helpers/status_helper.dart';
 
 class AdminCitizensScreen extends StatefulWidget {
   const AdminCitizensScreen({super.key});
@@ -674,7 +675,7 @@ class _AdminCitizensScreenState extends State<AdminCitizensScreen> {
           'id':          d.id,
           'trackingId':  data['trackingId'] ?? '',
           'serviceName': data['serviceName'] ?? 'Service Request',
-          'status':      data['status'] ?? 'pending',
+          'status':      data['status'] ?? 'submitted',
           'createdAt':   data['createdAt'],
         };
       }).toList();
@@ -816,10 +817,10 @@ class _AdminCitizensScreenState extends State<AdminCitizensScreen> {
                                   child: Column(
                                     children: [
                                       _summaryItem('Total', requests.length, const Color(0xFF5C6BC0)),
-                                      _summaryItem('Pending', requests.where((r) => r['status'] == 'pending').length, const Color(0xFFF59E0B)),
-                                      _summaryItem('In Progress', requests.where((r) => r['status'] == 'in_progress').length, const Color(0xFF3B82F6)),
-                                      _summaryItem('Completed', requests.where((r) => r['status'] == 'completed').length, const Color(0xFF10B981)),
-                                      _summaryItem('Rejected', requests.where((r) => r['status'] == 'rejected').length, const Color(0xFFEF4444)),
+                                      _summaryItem('Pending', requests.where((r) => isPendingStatus(r['status']?.toString() ?? '')).length, const Color(0xFFF59E0B)),
+                                      _summaryItem('Processing', requests.where((r) => isProcessingStatus(r['status']?.toString() ?? '')).length, const Color(0xFF3B82F6)),
+                                      _summaryItem('Completed', requests.where((r) => isCompletedStatus(r['status']?.toString() ?? '')).length, const Color(0xFF10B981)),
+                                      _summaryItem('Returned/Rejected', requests.where((r) => isReturnedOrRejectedStatus(r['status']?.toString() ?? '')).length, const Color(0xFFEF4444)),
                                     ],
                                   ),
                                 ),
@@ -854,10 +855,10 @@ class _AdminCitizensScreenState extends State<AdminCitizensScreen> {
                                     child: Column(
                                       children: [
                                         _summaryItem('Total', requests.length, const Color(0xFF5C6BC0)),
-                                        _summaryItem('Pending', requests.where((r) => r['status'] == 'pending').length, const Color(0xFFF59E0B)),
-                                        _summaryItem('In Progress', requests.where((r) => r['status'] == 'in_progress').length, const Color(0xFF3B82F6)),
-                                        _summaryItem('Completed', requests.where((r) => r['status'] == 'completed').length, const Color(0xFF10B981)),
-                                        _summaryItem('Rejected', requests.where((r) => r['status'] == 'rejected').length, const Color(0xFFEF4444)),
+                                        _summaryItem('Pending', requests.where((r) => isPendingStatus(r['status']?.toString() ?? '')).length, const Color(0xFFF59E0B)),
+                                        _summaryItem('Processing', requests.where((r) => isProcessingStatus(r['status']?.toString() ?? '')).length, const Color(0xFF3B82F6)),
+                                        _summaryItem('Completed', requests.where((r) => isCompletedStatus(r['status']?.toString() ?? '')).length, const Color(0xFF10B981)),
+                                        _summaryItem('Returned/Rejected', requests.where((r) => isReturnedOrRejectedStatus(r['status']?.toString() ?? '')).length, const Color(0xFFEF4444)),
                                       ],
                                     ),
                                   ),
@@ -1060,8 +1061,9 @@ class _AdminCitizensScreenState extends State<AdminCitizensScreen> {
 
   Widget _requestHistoryItem(Map<String, dynamic> r) {
     final status = r['status'] as String;
-    final color  = _statusColor(status);
-    final label  = _statusLabel(status);
+    final statusStyle = getStatusStyle(status);
+    final color  = statusStyle['color'] as Color;
+    final label  = statusStyle['label'] as String;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1137,11 +1139,13 @@ class _AdminCitizensScreenState extends State<AdminCitizensScreen> {
   Future<void> _toggleActive(
       String uid, bool currentlyActive) async {
     try {
+      final next = !currentlyActive;
       await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
-          .update({'isActive': !currentlyActive});
+          .update({'isActive': next});
       if (mounted) {
+        _setCitizenActiveLocal(uid, next);
         _showSnack(
           currentlyActive
               ? 'Account deactivated'
@@ -1150,11 +1154,27 @@ class _AdminCitizensScreenState extends State<AdminCitizensScreen> {
               ? AppColors.warning
               : AppColors.success,
         );
-        _loadCitizens();
       }
     } catch (e) {
       if (mounted) _showSnack('Failed: $e', AppColors.danger);
     }
+  }
+
+  void _setCitizenActiveLocal(String uid, bool isActive) {
+    final idx = _allCitizens.indexWhere((c) => c['uid'] == uid);
+    if (idx == -1) return;
+
+    _allCitizens[idx] = {
+      ..._allCitizens[idx],
+      'isActive': isActive,
+    };
+
+    _applySearch();
+  }
+
+  void _removeCitizenLocal(String uid) {
+    _allCitizens.removeWhere((c) => c['uid'] == uid);
+    _applySearch();
   }
 
   void _confirmDelete(String uid, String name) {
@@ -1224,8 +1244,8 @@ class _AdminCitizensScreenState extends State<AdminCitizensScreen> {
           .doc(uid)
           .delete();
       if (mounted) {
+        _removeCitizenLocal(uid);
         _showSnack('Account deleted', AppColors.danger);
-        _loadCitizens();
       }
     } catch (e) {
       if (mounted) {
@@ -1259,23 +1279,8 @@ class _AdminCitizensScreenState extends State<AdminCitizensScreen> {
     return name.isNotEmpty ? name[0].toUpperCase() : '?';
   }
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'completed':   return const Color(0xFF10B981);
-      case 'in_progress': return const Color(0xFF3B82F6);
-      case 'rejected':    return const Color(0xFFEF4444);
-      default:            return const Color(0xFFF59E0B);
-    }
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'completed':   return 'Completed';
-      case 'in_progress': return 'In Progress';
-      case 'rejected':    return 'Rejected';
-      default:            return 'Pending';
-    }
-  }
+  // Status styles now use shared helper from status_helper.dart
+  // Previously had _statusColor() and _statusLabel() methods with 4 cases each
 
   String _fmtTs(Timestamp? ts) {
     if (ts == null) return '—';

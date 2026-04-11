@@ -398,6 +398,31 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
         }
       } catch (_) {}
 
+      // Ensure request always carries both department and departmentId.
+      final category = (widget.category ?? '').trim();
+      final fallbackDeptByCategory = {
+        'mayor': 'City Administration Office',
+        'civil': 'Office of the City Civil Registrar',
+        'community': 'Office of the City Community Affairs',
+      };
+      final resolvedDepartment = (widget.department ?? '').trim().isNotEmpty
+          ? widget.department!.trim()
+          : (fallbackDeptByCategory[category] ?? 'Unassigned');
+
+      var resolvedDepartmentId = (widget.departmentId ?? '').trim();
+      if (resolvedDepartmentId.isEmpty && resolvedDepartment != 'Unassigned') {
+        try {
+          final deptSnap = await FirebaseFirestore.instance
+              .collection('departments')
+              .where('name', isEqualTo: resolvedDepartment)
+              .limit(1)
+              .get();
+          if (deptSnap.docs.isNotEmpty) {
+            resolvedDepartmentId = deptSnap.docs.first.id;
+          }
+        } catch (_) {}
+      }
+
       // ── FIX: status is now 'submitted' to match admin pipeline ──
       // Previously saved as 'pending' which is a different step
       // in the workflow and caused the admin stepper/filter mismatch.
@@ -410,9 +435,9 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
 
         // Service info — department passed from services_screen
         'serviceName':  widget.serviceName ?? 'Unknown Service',
-        'category':     widget.category    ?? 'General',
-        'department':   widget.department  ?? 'Unassigned',
-        'departmentId': widget.departmentId ?? '',
+        'category':     category.isNotEmpty ? category : 'General',
+        'department':   resolvedDepartment,
+        'departmentId': resolvedDepartmentId,
 
         // ── FIX: was 'pending', now 'submitted' ──────────────────
         'status':             'submitted',
@@ -513,7 +538,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
         ],
       ),
       bottomNavigationBar:
-          const BottomNav(selectedIndex: 2),
+          const BottomNav(selectedIndex: 1),
     );
   }
 

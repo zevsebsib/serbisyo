@@ -102,7 +102,17 @@ class _AdminShellScreenState
 
   Future<void> _loadAdminData() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (uid == null) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/admin/login');
+          }
+        });
+      }
+      return;
+    }
 
     try {
       final doc = await FirebaseFirestore.instance
@@ -115,6 +125,14 @@ class _AdminShellScreenState
           _role      = doc.data()?['role'] ?? 'admin';
           _fullName  = doc.data()?['fullName'] ?? 'Admin';
           _isLoading = false;
+        });
+      } else if (mounted) {
+        await FirebaseAuth.instance.signOut();
+        setState(() => _isLoading = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/admin/login');
+          }
         });
       }
     } catch (_) {
@@ -209,8 +227,12 @@ class _AdminShellScreenState
                     ),
                   ],
                 ),
-                child: Column(
-                  children: [
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final showExpanded = constraints.maxWidth >= 180;
+
+                    return Column(
+                      children: [
                     // Logo
                     Container(
                       height: 72,
@@ -236,7 +258,7 @@ class _AdminShellScreenState
                                   fit: BoxFit.cover),
                             ),
                           ),
-                          if (_isExpanded) ...[
+                            if (showExpanded) ...[
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -278,7 +300,7 @@ class _AdminShellScreenState
                     ),
 
                     // Role badge
-                    if (_isExpanded)
+                    if (showExpanded)
                       Container(
                         margin: const EdgeInsets.fromLTRB(
                             12, 12, 12, 0),
@@ -358,95 +380,139 @@ class _AdminShellScreenState
                           return Padding(
                             padding: const EdgeInsets.only(
                                 bottom: 4),
-                            child: Tooltip(
-                              message: _isExpanded
-                                  ? ''
-                                  : item.label,
-                              preferBelow: false,
-                              child: InkWell(
-                                onTap: () => setState(() =>
-                                    _selectedIndex = index),
-                                borderRadius:
-                                    BorderRadius.circular(10),
-                                child: AnimatedContainer(
-                                  duration: const Duration(
-                                      milliseconds: 150),
-                                  height: 46,
-                                  padding: const EdgeInsets
-                                      .symmetric(
-                                          horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    color: selected
-                                        ? Colors.white
-                                            .withValues(
-                                                alpha: 0.20)
-                                        : Colors.transparent,
+                            child: showExpanded
+                                ? InkWell(
+                                    onTap: () => setState(() =>
+                                        _selectedIndex = index),
                                     borderRadius:
-                                        BorderRadius.circular(
-                                            10),
-                                    border: selected
-                                        ? Border.all(
-                                            color: Colors.white
-                                                .withValues(
-                                                    alpha: 0.30),
-                                            width: 1,
-                                          )
-                                        : null,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        item.icon,
-                                        size: 22,
+                                        BorderRadius.circular(10),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                          milliseconds: 150),
+                                      height: 46,
+                                      padding: const EdgeInsets
+                                          .symmetric(
+                                              horizontal: 12),
+                                      decoration: BoxDecoration(
                                         color: selected
                                             ? Colors.white
-                                            : Colors.white
                                                 .withValues(
-                                                    alpha: 0.60),
+                                                    alpha: 0.20)
+                                            : Colors.transparent,
+                                        borderRadius:
+                                            BorderRadius.circular(
+                                                10),
+                                        border: selected
+                                            ? Border.all(
+                                                color: Colors.white
+                                                    .withValues(
+                                                        alpha: 0.30),
+                                                width: 1,
+                                              )
+                                            : null,
                                       ),
-                                      if (_isExpanded) ...[
-                                        const SizedBox(
-                                            width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            item.label,
-                                            overflow:
-                                                TextOverflow
-                                                    .ellipsis,
-                                            style: GoogleFonts
-                                                .inter(
-                                              fontSize: 13,
-                                              fontWeight: selected
-                                                  ? FontWeight
-                                                      .w700
-                                                  : FontWeight
-                                                      .w500,
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            item.icon,
+                                            size: 22,
+                                            color: selected
+                                                ? Colors.white
+                                                : Colors.white
+                                                    .withValues(
+                                                        alpha: 0.60),
+                                          ),
+                                          if (showExpanded) ...[
+                                            const SizedBox(
+                                                width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                item.label,
+                                                overflow:
+                                                    TextOverflow
+                                                        .ellipsis,
+                                                style: GoogleFonts
+                                                    .inter(
+                                                  fontSize: 13,
+                                                  fontWeight: selected
+                                                      ? FontWeight
+                                                          .w700
+                                                      : FontWeight
+                                                          .w500,
+                                                  color: selected
+                                                      ? Colors.white
+                                                      : Colors.white
+                                                          .withValues(
+                                                              alpha:
+                                                                  0.70),
+                                                ),
+                                              ),
+                                            ),
+                                            if (selected)
+                                              Container(
+                                                width: 6,
+                                                height: 6,
+                                                decoration:
+                                                    const BoxDecoration(
+                                                  color: Colors.white,
+                                                  shape:
+                                                      BoxShape.circle,
+                                                ),
+                                              ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : Tooltip(
+                                    message: item.label,
+                                    preferBelow: false,
+                                    child: InkWell(
+                                      onTap: () => setState(() =>
+                                          _selectedIndex = index),
+                                      borderRadius:
+                                          BorderRadius.circular(10),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(
+                                            milliseconds: 150),
+                                        height: 46,
+                                        padding: const EdgeInsets
+                                            .symmetric(
+                                                horizontal: 12),
+                                        decoration: BoxDecoration(
+                                          color: selected
+                                              ? Colors.white
+                                                  .withValues(
+                                                      alpha: 0.20)
+                                              : Colors.transparent,
+                                          borderRadius:
+                                              BorderRadius.circular(
+                                                  10),
+                                          border: selected
+                                              ? Border.all(
+                                                  color: Colors.white
+                                                      .withValues(
+                                                          alpha: 0.30),
+                                                  width: 1,
+                                                )
+                                              : null,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              item.icon,
+                                              size: 22,
                                               color: selected
                                                   ? Colors.white
                                                   : Colors.white
                                                       .withValues(
-                                                          alpha:
-                                                              0.70),
+                                                          alpha: 0.60),
                                             ),
-                                          ),
+                                          ],
                                         ),
-                                        if (selected)
-                                          Container(
-                                            width: 6,
-                                            height: 6,
-                                            decoration:
-                                                const BoxDecoration(
-                                              color: Colors.white,
-                                              shape:
-                                                  BoxShape.circle,
-                                            ),
-                                          ),
-                                      ],
-                                    ],
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ),
                           );
                         },
                       ),
@@ -455,56 +521,86 @@ class _AdminShellScreenState
                     // Logout
                     Padding(
                       padding: const EdgeInsets.all(8),
-                      child: Tooltip(
-                        message:
-                            _isExpanded ? '' : 'Sign Out',
-                        preferBelow: false,
-                        child: InkWell(
-                          onTap: _handleLogout,
-                          borderRadius:
-                              BorderRadius.circular(10),
-                          child: AnimatedContainer(
-                            duration: const Duration(
-                                milliseconds: 150),
-                            height: 46,
-                            padding:
-                                const EdgeInsets.symmetric(
-                                    horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white
-                                  .withValues(alpha: 0.08),
+                      child: showExpanded
+                          ? InkWell(
+                              onTap: _handleLogout,
                               borderRadius:
                                   BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.logout_rounded,
-                                    size: 22,
-                                    color: Colors.white
-                                        .withValues(
-                                            alpha: 0.70)),
-                                if (_isExpanded) ...[
-                                  const SizedBox(width: 12),
-                                  Text('Sign Out',
-                                      style:
-                                          GoogleFonts.inter(
-                                        fontSize: 13,
-                                        fontWeight:
-                                            FontWeight.w500,
+                              child: AnimatedContainer(
+                                duration: const Duration(
+                                    milliseconds: 150),
+                                height: 46,
+                                padding:
+                                    const EdgeInsets.symmetric(
+                                        horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white
+                                      .withValues(alpha: 0.08),
+                                  borderRadius:
+                                      BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.logout_rounded,
+                                        size: 22,
                                         color: Colors.white
                                             .withValues(
-                                                alpha: 0.70),
-                                      )),
-                                ],
-                              ],
+                                                alpha: 0.70)),
+                                    if (showExpanded) ...[
+                                      const SizedBox(width: 12),
+                                      Text('Sign Out',
+                                          style:
+                                              GoogleFonts.inter(
+                                            fontSize: 13,
+                                            fontWeight:
+                                                FontWeight.w500,
+                                            color: Colors.white
+                                                .withValues(
+                                                    alpha: 0.70),
+                                          )),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            )
+                          : Tooltip(
+                              message: 'Sign Out',
+                              preferBelow: false,
+                              child: InkWell(
+                                onTap: _handleLogout,
+                                borderRadius:
+                                    BorderRadius.circular(10),
+                                child: AnimatedContainer(
+                                  duration: const Duration(
+                                      milliseconds: 150),
+                                  height: 46,
+                                  padding:
+                                      const EdgeInsets.symmetric(
+                                          horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.08),
+                                    borderRadius:
+                                        BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.logout_rounded,
+                                          size: 22,
+                                          color: Colors.white
+                                              .withValues(
+                                                  alpha: 0.70)),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
                     ),
 
                     const SizedBox(height: 8),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ),

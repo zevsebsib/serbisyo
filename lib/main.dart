@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:serbisyo_alisto/admin/screens/admin_login_screen.dart';
 import 'package:serbisyo_alisto/admin/screens/admin_shell_screen.dart';
 import 'package:serbisyo_alisto/firebase_options.dart';
-import 'package:serbisyo_alisto/screens/alerts_demo_screen.dart';
 import 'package:serbisyo_alisto/screens/dashboard_screen.dart';
 import 'package:serbisyo_alisto/screens/edit_profile_screen.dart';
 import 'package:serbisyo_alisto/screens/forgot_password_screen.dart';
@@ -17,7 +16,6 @@ import 'package:serbisyo_alisto/screens/personal_information_screen.dart';
 import 'package:serbisyo_alisto/screens/profile_screen.dart';
 import 'package:serbisyo_alisto/screens/register_screen.dart';
 import 'package:serbisyo_alisto/screens/request_tracking_screen.dart';
-import 'package:serbisyo_alisto/screens/service_category_detail_screen.dart';
 import 'package:serbisyo_alisto/screens/service_form_screen.dart';
 import 'package:serbisyo_alisto/screens/services_screen.dart';
 import 'package:serbisyo_alisto/screens/settings_screen.dart';
@@ -151,12 +149,6 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
           case '/services':
             page = const ServicesScreen();
             break;
-          case '/service_detail':
-            final args =
-                settings.arguments as Map<String, dynamic>?;
-            page = ServiceCategoryDetailScreen(
-                categoryId: args?['categoryId'] ?? 'mayor');
-            break;
 
           // ── Service form ───────────────────────────────────────
           // Passes all 4 fields so admin panel receives full data
@@ -186,9 +178,6 @@ class _SerbisyoAlistoAppState extends State<SerbisyoAlistoApp>
           // ── Notifications ──────────────────────────────────────
           case '/notifications':
             page = const NotificationsScreen();
-            break;
-          case '/alerts':
-            page = const AlertsDemoScreen();
             break;
 
           // ── Profile ────────────────────────────────────────────

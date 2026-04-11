@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:serbisyo_alisto/helpers/request_status.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bottom_nav.dart';
 
@@ -27,22 +28,11 @@ class _RequestTrackingScreenState
     {'key': 'ready_for_pickup', 'label': 'Ready for Pick Up', 'icon': LucideIcons.packageCheck},
   ];
 
-  // ── Map legacy status values ───────────────────────────────────────
-  String _mapLegacyStatus(String status) {
-    switch (status) {
-      case 'pending':     return 'pending_review';
-      case 'in_progress': return 'processing';
-      case 'ready':       return 'ready_for_pickup';
-      default:            return status;
-    }
-  }
-
   int _currentIndex(String status) {
-    final s = status.toLowerCase();
+    final s = normalizeRequestStatus(status);
     if (s == 'completed') return _pipeline.length;
-    if (s == 'rejected')  return 0;
-    final mapped = _mapLegacyStatus(s);
-    final idx    = _pipeline.indexWhere((step) => step['key'] == mapped);
+    if (s == 'rejected' || s == 'returned')  return 0;
+    final idx    = _pipeline.indexWhere((step) => step['key'] == s);
     return idx < 0 ? 0 : idx;
   }
 
@@ -73,7 +63,7 @@ class _RequestTrackingScreenState
       final entry = history.firstWhere(
         (h) {
           final s = h['status']?.toString().toLowerCase() ?? '';
-          return s == stepKey || _mapLegacyStatus(s) == stepKey;
+          return normalizeRequestStatus(s) == stepKey;
         },
         orElse: () => null,
       );
@@ -179,6 +169,7 @@ class _RequestTrackingScreenState
       'ready_for_pickup': {'label': 'Ready for Pick Up', 'color': AppColors.primary},
       'ready':            {'label': 'Ready for Pick Up', 'color': AppColors.primary},
       'completed':        {'label': 'Completed',         'color': AppColors.success},
+      'returned':         {'label': 'Returned',          'color': const Color(0xFFF97316)},
       'rejected':         {'label': 'Rejected',          'color': AppColors.danger},
     };
     final style = statusStyles[rawStatus] ??
@@ -232,13 +223,17 @@ class _RequestTrackingScreenState
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text(
-                        shortId,
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: AppColors.muted,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.3,
+                      Flexible(
+                        child: Text(
+                          shortId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                          ),
                         ),
                       ),
                       if (createdAt != null) ...[
@@ -252,15 +247,15 @@ class _RequestTrackingScreenState
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Flexible(
+                        Expanded(
                           child: Text(
                             _formatDate(createdAt),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
                               fontSize: 10,
                               color: AppColors.muted,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -269,38 +264,43 @@ class _RequestTrackingScreenState
                 ],
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
 
             // Status chip + arrow
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.10),
-                    borderRadius:
-                        BorderRadius.circular(AppRadius.pill),
-                    border: Border.all(
-                        color: statusColor.withValues(alpha: 0.25)),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: statusColor,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 116),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.10),
+                      borderRadius:
+                          BorderRadius.circular(AppRadius.pill),
+                      border: Border.all(
+                          color: statusColor.withValues(alpha: 0.25)),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Icon(
-                  LucideIcons.chevronRight,
-                  size: 14,
-                  color: AppColors.muted.withValues(alpha: 0.5),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Icon(
+                    LucideIcons.chevronRight,
+                    size: 14,
+                    color: AppColors.muted.withValues(alpha: 0.5),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -382,7 +382,8 @@ class _RequestTrackingScreenState
             ? trackingId
             : '#${resolvedId.length > 8 ? resolvedId.substring(0, 8).toUpperCase() : resolvedId.toUpperCase()}';
 
-        final isRejected  = rawStatus.toLowerCase() == 'rejected';
+        final isRejected  = normalizeRequestStatus(rawStatus) == 'rejected';
+        final isReturned  = normalizeRequestStatus(rawStatus) == 'returned';
         final isCompleted = rawStatus.toLowerCase() == 'completed';
         final missingDocs =
             List<String>.from(data['missingDocuments'] ?? []);
@@ -412,9 +413,6 @@ class _RequestTrackingScreenState
                           Colors.black.withValues(alpha: 0.4),
                       letterSpacing: 2.0,
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 16),
 
@@ -422,16 +420,20 @@ class _RequestTrackingScreenState
                   Container(
                     width: 80, height: 96,
                     decoration: BoxDecoration(
-                      color: isRejected
+                        color: isRejected
                           ? AppColors.danger
+                          : isReturned
+                            ? const Color(0xFFF97316)
                           : isCompleted
                               ? AppColors.success
                               : AppColors.primary,
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: (isRejected
+                            color: (isRejected
                                   ? AppColors.danger
+                                : isReturned
+                                  ? const Color(0xFFF97316)
                                   : isCompleted
                                       ? AppColors.success
                                       : AppColors.primary)
@@ -448,6 +450,8 @@ class _RequestTrackingScreenState
                         Icon(
                           isRejected
                               ? LucideIcons.xCircle
+                              : isReturned
+                                ? LucideIcons.undo2
                               : isCompleted
                                   ? LucideIcons.checkCircle2
                                   : LucideIcons.fileText,
@@ -458,6 +462,8 @@ class _RequestTrackingScreenState
                         Text(
                           isRejected
                               ? 'REJECT'
+                              : isReturned
+                                ? 'RETURN'
                               : isCompleted
                                   ? 'DONE'
                                   : 'FILE',
@@ -492,9 +498,6 @@ class _RequestTrackingScreenState
                       color: Colors.black,
                       letterSpacing: 1.0,
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
 
                   // Status badge
@@ -526,6 +529,46 @@ class _RequestTrackingScreenState
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF2196F3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Returned banner
+                  if (isReturned) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E8),
+                        borderRadius: BorderRadius.circular(
+                            AppRadius.lg),
+                        border: Border.all(
+                            color: const Color(0xFFF97316)
+                                .withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(LucideIcons.undo2,
+                              color: Color(0xFFF97316), size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              data['returnReason']
+                                          ?.toString()
+                                          .isNotEmpty ==
+                                      true
+                                  ? data['returnReason']
+                                      .toString()
+                                  : 'Your request was returned for correction. Please review and resubmit.',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: const Color(0xFFF97316),
+                                height: 1.5,
+                              ),
                             ),
                           ),
                         ],
@@ -777,7 +820,7 @@ class _RequestTrackingScreenState
               const SizedBox(height: 40),
 
               // ── Stepper ───────────────────────────────────────
-              if (!isRejected)
+              if (!isRejected && !isReturned)
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -873,79 +916,67 @@ class _RequestTrackingScreenState
                               padding: const EdgeInsets.only(
                                   top: 8, bottom: 32),
                               child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          step['label'] as String,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 14,
-                                            fontWeight:
-                                                FontWeight.w900,
-                                            color: stepState ==
-                                                    'pending'
-                                                ? Colors.black
-                                                    .withValues(
-                                                        alpha: 0.2)
-                                                : Colors.black,
-                                          ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        if (date.isNotEmpty)
-                                          Padding(
-                                            padding:
-                                                const EdgeInsets
-                                                    .only(top: 4),
-                                            child: Text(
-                                              date,
-                                              style: GoogleFonts.inter(
-                                                fontSize: 10,
-                                                fontWeight:
-                                                    FontWeight.bold,
-                                                color: Colors.black
-                                                    .withValues(
-                                                        alpha: 0.3),
-                                                letterSpacing: -0.5,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      alignment:
-                                          Alignment.centerRight,
-                                      child: Text(
-                                        stepState == 'completed'
-                                            ? 'DONE'
-                                            : stepState == 'current'
-                                                ? 'IN PROGRESS'
-                                                : 'PENDING',
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        step['label'] as String,
                                         style: GoogleFonts.inter(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w900,
+                                          fontSize: 14,
+                                          fontWeight:
+                                              FontWeight.w900,
                                           color: stepState ==
-                                                  'completed'
-                                              ? AppColors.success
-                                              : stepState == 'current'
-                                                  ? AppColors.primary
-                                                  : Colors.black
-                                                      .withValues(
-                                                          alpha: 0.2),
-                                          letterSpacing: -0.5,
+                                                  'pending'
+                                              ? Colors.black
+                                                  .withValues(
+                                                      alpha: 0.2)
+                                              : Colors.black,
                                         ),
                                       ),
+                                      if (date.isNotEmpty)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets
+                                                  .only(top: 4),
+                                          child: Text(
+                                            date,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10,
+                                              fontWeight:
+                                                  FontWeight.bold,
+                                              color: Colors.black
+                                                  .withValues(
+                                                      alpha: 0.3),
+                                              letterSpacing: -0.5,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  Text(
+                                    stepState == 'completed'
+                                        ? 'DONE'
+                                        : stepState == 'current'
+                                            ? 'IN PROGRESS'
+                                            : 'PENDING',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                      color: stepState ==
+                                              'completed'
+                                          ? AppColors.success
+                                          : stepState == 'current'
+                                              ? AppColors.primary
+                                              : Colors.black
+                                                  .withValues(
+                                                      alpha: 0.2),
+                                      letterSpacing: -0.5,
                                     ),
                                   ),
                                 ],
@@ -977,6 +1008,7 @@ class _RequestTrackingScreenState
       'ready_for_pickup': {'label': 'Ready for Pick Up', 'color': AppColors.primary},
       'ready':            {'label': 'Ready for Pick Up', 'color': AppColors.primary},
       'completed':        {'label': 'Completed',         'color': AppColors.success},
+      'returned':         {'label': 'Returned',          'color': const Color(0xFFF97316)},
       'rejected':         {'label': 'Rejected',          'color': AppColors.danger},
     };
 

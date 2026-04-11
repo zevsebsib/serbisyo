@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_theme.dart';
+import '../helpers/status_helper.dart';
 
 class AdminRequestsScreen extends StatefulWidget {
   const AdminRequestsScreen({super.key});
@@ -55,8 +56,11 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     try {
       final adminDoc = await FirebaseFirestore.instance
           .collection('admin').doc(uid).get();
-      _role            = adminDoc.data()?['role'] ?? '';
-      _staffDepartment = adminDoc.data()?['department'] as String? ?? '';
+            _role = adminDoc.data()?['role'] ?? '';
+            final data = adminDoc.data() ?? {};
+            _staffDepartment = (data['department'] as String?)?.trim().isNotEmpty == true
+                ? data['department'] as String
+                : (data['Department'] as String?)?.trim() ?? '';
 
       final deptSnap = await FirebaseFirestore.instance
           .collection('departments').get();
@@ -97,14 +101,13 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         // Query 2: routed to staff's department (skip if dept not set)
         List<QueryDocumentSnapshot> deptDocs = [];
         if (_staffDepartment.isNotEmpty) {
-          final deptSnap2 = await FirebaseFirestore.instance
+          final deptQuery = await FirebaseFirestore.instance
               .collection('requests')
               .where('department', isEqualTo: _staffDepartment)
               .orderBy('createdAt', descending: true)
               .get();
-          deptDocs = deptSnap2.docs;
+          deptDocs = deptQuery.docs;
         }
-
         // Merge and deduplicate by document ID
         final seen   = <String>{};
         final merged = <QueryDocumentSnapshot>[];
@@ -187,7 +190,10 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
 
     if (_statusFilter != 'all') {
       result = result
-          .where((r) => r['status'] == _statusFilter)
+          .where((r) => matchesStatusFilter(
+                r['status']?.toString() ?? '',
+                _statusFilter,
+              ))
           .toList();
     }
     if (_departmentFilter != 'all') {
@@ -564,17 +570,18 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
 
   // ── Stats row ──────────────────────────────────────────────────────────────
   Widget _buildStatsRow() {
+    final scoped = _filteredRequests;
     final stats = <Map<String, dynamic>>[
       {
         'key':   'all',
         'label': 'Total',
-        'value': _allRequests.length,
+        'value': scoped.length,
         'color': const Color(0xFF5C6BC0),
       },
       {
         'key':   'submitted',
         'label': 'Submitted',
-        'value': _allRequests
+        'value': scoped
             .where((r) => r['status'] == 'submitted')
             .length,
         'color': const Color(0xFF5C6BC0),
@@ -582,7 +589,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       {
         'key':   'pending_review',
         'label': 'Pending Review',
-        'value': _allRequests
+        'value': scoped
             .where((r) =>
                 r['status'] == 'pending_review' ||
                 r['status'] == 'pending')
@@ -592,7 +599,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       {
         'key':   'processing',
         'label': 'Processing',
-        'value': _allRequests
+        'value': scoped
             .where((r) =>
                 r['status'] == 'processing' ||
                 r['status'] == 'in_progress')
@@ -602,7 +609,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       {
         'key':   'completed',
         'label': 'Completed',
-        'value': _allRequests
+        'value': scoped
             .where((r) => r['status'] == 'completed')
             .length,
         'color': const Color(0xFF10B981),
@@ -610,7 +617,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       {
         'key':   'returned',
         'label': 'Returned',
-        'value': _allRequests
+        'value': scoped
             .where((r) => r['status'] == 'returned')
             .length,
         'color': const Color(0xFFF97316),
@@ -618,7 +625,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       {
         'key':   'rejected',
         'label': 'Rejected',
-        'value': _allRequests
+        'value': scoped
             .where((r) => r['status'] == 'rejected')
             .length,
         'color': const Color(0xFFEF4444),
@@ -774,7 +781,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   }
 
   Widget _buildRow(Map<String, dynamic> r) {
-    final statusStyle = _getStatusStyle(r['status'] as String);
+    final statusStyle = getStatusStyle(r['status'] as String);
     final color       = statusStyle['color'] as Color;
     final label       = statusStyle['label'] as String;
     final docUrls =
@@ -1065,7 +1072,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
 
   // ── Request detail dialog ──────────────────────────────────────────────────
   void _showRequestDialog(Map<String, dynamic> r) {
-    final statusStyle = _getStatusStyle(r['status'] as String);
+    final statusStyle = getStatusStyle(r['status'] as String);
     final docUrls =
         r['documentUrls'] as Map<String, dynamic>? ?? {};
     final missing = List<String>.from(
@@ -1318,11 +1325,14 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                           if (mounted) {
                                             Navigator.of(ctx)
                                                 .pop();
+                                                _patchRequestLocal(
+                                                  r['id'] as String,
+                                                  verificationStatus: 'verified',
+                                                );
                                             _showSnack(
                                                 'Documents marked as verified',
                                                 const Color(
                                                     0xFF10B981));
-                                            _loadData();
                                           }
                                         },
                                         icon: const Icon(
@@ -1483,11 +1493,15 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                                 if (mounted) {
                                                   Navigator.of(ctx)
                                                       .pop();
+                                                  _setMissingDocumentLocal(
+                                                    requestId,
+                                                    docName,
+                                                    false,
+                                                  );
                                                   _showSnack(
                                                       '$docName unflagged',
                                                       const Color(
                                                           0xFF10B981));
-                                                  _loadData();
                                                 }
                                               } else {
                                                 await FirebaseFirestore
@@ -1507,11 +1521,15 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                                 if (mounted) {
                                                   Navigator.of(ctx)
                                                       .pop();
+                                                  _setMissingDocumentLocal(
+                                                    requestId,
+                                                    docName,
+                                                    true,
+                                                  );
                                                   _showSnack(
                                                       '$docName flagged as missing',
                                                       const Color(
                                                           0xFFF59E0B));
-                                                  _loadData();
                                                 }
                                               }
                                             },
@@ -1586,7 +1604,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                         .map((h) {
                                   final hMap = h
                                       as Map<String, dynamic>;
-                                  final hStyle = _getStatusStyle(
+                                  final hStyle = getStatusStyle(
                                       hMap['status']?.toString() ??
                                           'submitted');
                                   return Padding(
@@ -1832,7 +1850,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                       'returned',
                       'rejected',
                     ].map((s) {
-                      final style      = _getStatusStyle(s);
+                      final style      = getStatusStyle(s);
                       final sColor     = style['color'] as Color;
                       final sLabel     = style['label'] as String;
                       final isSelected = selectedStatus == s;
@@ -2223,7 +2241,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
           default:
             notifBody =
                 'Your request ($trackingId) status has been '
-                'updated to ${_getStatusStyle(status)['label']}.';
+                'updated to ${getStatusStyle(status)['label']};';
         }
 
         await FirebaseFirestore.instance
@@ -2240,13 +2258,35 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       }
 
       if (mounted) {
+        final historyEntry = {
+          'status': status,
+          'timestamp': Timestamp.now(),
+          'note': note.isNotEmpty ? note : null,
+          'updatedBy': _currentUid,
+        };
+
+        _patchRequestLocal(
+          requestId,
+          status: status,
+          returnReason:
+              status == 'returned' ? reason : null,
+          rejectionReason:
+              status == 'rejected' ? reason : null,
+          clearReturnReason: status == 'rejected',
+          clearRejectionReason: status == 'returned',
+          finalDocumentUrl:
+              status == 'completed' && finalDocUrl.isNotEmpty
+                  ? finalDocUrl
+                  : null,
+          statusHistoryEntry: historyEntry,
+        );
+
         _showSnack(
           status == 'returned'
               ? 'Request returned to citizen ✔'
               : 'Status updated successfully ✔',
           AppColors.success,
         );
-        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -2256,6 +2296,74 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+  void _patchRequestLocal(
+    String requestId, {
+    String? status,
+    String? verificationStatus,
+    String? returnReason,
+    String? rejectionReason,
+    bool clearReturnReason = false,
+    bool clearRejectionReason = false,
+    String? finalDocumentUrl,
+    Map<String, dynamic>? statusHistoryEntry,
+  }) {
+    final idx = _allRequests.indexWhere((r) => r['id'] == requestId);
+    if (idx == -1) return;
+
+    final current = _allRequests[idx];
+    final history = List<dynamic>.from(
+      (current['statusHistory'] as List?) ?? const [],
+    );
+    if (statusHistoryEntry != null) {
+      history.add(statusHistoryEntry);
+    }
+
+    _allRequests[idx] = {
+      ...current,
+      if (status != null) 'status': status,
+      if (verificationStatus != null)
+        'verificationStatus': verificationStatus,
+      if (returnReason != null) 'returnReason': returnReason,
+      if (rejectionReason != null) 'rejectionReason': rejectionReason,
+      if (clearReturnReason) 'returnReason': '',
+      if (clearRejectionReason) 'rejectionReason': '',
+      if (finalDocumentUrl != null)
+        'finalDocumentUrl': finalDocumentUrl,
+      if (statusHistoryEntry != null)
+        'statusHistory': history,
+      'updatedAt': Timestamp.now(),
+    };
+
+    _applyFilters();
+  }
+
+  void _setMissingDocumentLocal(
+      String requestId, String docName, bool isMissing) {
+    final idx = _allRequests.indexWhere((r) => r['id'] == requestId);
+    if (idx == -1) return;
+
+    final current = _allRequests[idx];
+    final missing = List<String>.from(
+      (current['missingDocuments'] as List?) ?? const [],
+    );
+
+    if (isMissing) {
+      if (!missing.contains(docName)) {
+        missing.add(docName);
+      }
+    } else {
+      missing.remove(docName);
+    }
+
+    _allRequests[idx] = {
+      ...current,
+      'missingDocuments': missing,
+      'updatedAt': Timestamp.now(),
+    };
+
+    _applyFilters();
+  }
+
   void _showSnack(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -2270,68 +2378,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         margin: const EdgeInsets.all(16),
       ),
     );
-  }
-
-  Map<String, dynamic> _getStatusStyle(String status) {
-    switch (status) {
-      case 'submitted':
-        return {
-          'label': 'Submitted',
-          'color': const Color(0xFF5C6BC0),
-          'icon':  Icons.send_rounded,
-        };
-      case 'pending_review':
-      case 'pending':
-        return {
-          'label': 'Pending Review',
-          'color': const Color(0xFFF59E0B),
-          'icon':  Icons.hourglass_empty_rounded,
-        };
-      case 'processing':
-      case 'in_progress':
-        return {
-          'label': 'Processing',
-          'color': const Color(0xFF3B82F6),
-          'icon':  Icons.sync_rounded,
-        };
-      case 'approved':
-        return {
-          'label': 'Approved',
-          'color': const Color(0xFF8B5CF6),
-          'icon':  Icons.thumb_up_rounded,
-        };
-      case 'ready_for_pickup':
-      case 'ready':
-        return {
-          'label': 'Ready for Pick Up',
-          'color': AppColors.primary,
-          'icon':  Icons.inventory_rounded,
-        };
-      case 'completed':
-        return {
-          'label': 'Completed',
-          'color': const Color(0xFF10B981),
-          'icon':  Icons.check_circle_rounded,
-        };
-      case 'returned':
-        return {
-          'label': 'Returned',
-          'color': const Color(0xFFF97316),
-          'icon':  Icons.undo_rounded,
-        };
-      case 'rejected':
-        return {
-          'label': 'Rejected',
-          'color': const Color(0xFFEF4444),
-          'icon':  Icons.cancel_rounded,
-        };
-      default:
-        return {
-          'label': 'Submitted',
-          'color': const Color(0xFF5C6BC0),
-          'icon':  Icons.send_rounded,
-        };
-    }
   }
 
   String _fmtTs(Timestamp? ts) {

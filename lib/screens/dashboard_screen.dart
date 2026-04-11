@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:serbisyo_alisto/helpers/request_status.dart';
 import '../theme/app_theme.dart';
 
 class _FeatureCard {
@@ -67,7 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final List<_NavItem> _navItems = [
     _NavItem(LucideIcons.home,          'Home',     '/'),
     _NavItem(LucideIcons.clipboardList, 'Requests', '/requests/track'),
-    _NavItem(LucideIcons.bell,          'Alerts',   '/notifications'),
+    _NavItem(LucideIcons.bell,          'Notification',   '/notifications'),
     _NavItem(LucideIcons.user,          'Profile',  '/profile'),
   ];
 
@@ -95,20 +96,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       for (final doc in docs) {
         final status =
-            (doc['status'] ?? '').toString().toLowerCase();
+            (doc['status'] ?? '').toString();
 
         // ── REVISED: Corrected status mapping to match
         //             actual Firestore values from admin side ──
-        if (status == 'submitted' || status == 'pending_review') {
-          // Not yet assigned or under initial review → Pending
+        if (isPendingStatus(status) || isReturnedStatus(status)) {
           pending++;
-        } else if (status == 'processing' ||
-            status == 'approved' ||
-            status == 'ready_for_pickup') {
-          // Actively being worked on → Processing
+        } else if (isProcessingStatus(status)) {
           processing++;
-        } else if (status == 'completed') {
-          // Fully done → Done
+        } else if (isCompletedStatus(status)) {
           done++;
         }
       }
@@ -639,28 +635,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 '#${rawId.length > 7 ? rawId.substring(0, 7).toUpperCase() : rawId.toUpperCase()}';
 
             // ── REVISED: Map raw status to display label ──
-            final rawStatus =
-                (item['status']?.toString() ?? '').toLowerCase();
-            String displayStatus;
-            switch (rawStatus) {
-              case 'submitted':
-              case 'pending_review':
-                displayStatus = 'PENDING';
-                break;
-              case 'processing':
-              case 'approved':
-              case 'ready_for_pickup':
-                displayStatus = 'PROCESSING';
-                break;
-              case 'completed':
-                displayStatus = 'COMPLETED';
-                break;
-              case 'rejected':
-                displayStatus = 'REJECTED';
-                break;
-              default:
-                displayStatus = rawStatus.toUpperCase();
-            }
+            final rawStatus = item['status']?.toString() ?? '';
+            final displayStatus = isPendingStatus(rawStatus)
+                ? 'PENDING'
+                : isProcessingStatus(rawStatus)
+                    ? 'PROCESSING'
+                    : isCompletedStatus(rawStatus)
+                        ? 'COMPLETED'
+                        : isReturnedStatus(rawStatus)
+                            ? 'RETURNED'
+                            : isRejectedStatus(rawStatus)
+                                ? 'REJECTED'
+                                : requestStatusLabel(rawStatus).toUpperCase();
 
             return _buildRequestCard({
               'rawId':    rawId,
@@ -717,6 +703,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'COMPLETED':
         statusBg = AppColors.successLight;
         statusFg = AppColors.success;
+        break;
+      case 'RETURNED':
+        statusBg = const Color(0xFFFFF3E8);
+        statusFg = const Color(0xFFF97316);
         break;
       case 'REJECTED':
         statusBg = const Color(0xFFFFEBEB);
