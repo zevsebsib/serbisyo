@@ -149,20 +149,20 @@ class _AdminServicesScreenState
   static const Map<String, Map<String, dynamic>> _categoryConfig = {
     'mayor': {
       'label': "City Administration Office",
-      'color': const Color(0xFF5B6AF0),
-      'bg':    const Color(0xFFEEF0FD),
+      'color': Color(0xFF5B6AF0),
+      'bg':    Color(0xFFEEF0FD),
       'icon':  Icons.account_balance_rounded,
     },
     'civil': {
       'label': 'Civil Registry',
-      'color': const Color(0xFF00A86B),
-      'bg':    const Color(0xFFE6F7F1),
+      'color': Color(0xFF00A86B),
+      'bg':    Color(0xFFE6F7F1),
       'icon':  Icons.description_rounded,
     },
     'community': {
       'label': 'Community Affairs',
-      'color': const Color(0xFFFF8000),
-      'bg':    const Color(0xFFFFF5EB),
+      'color': Color(0xFFFF8000),
+      'bg':    Color(0xFFFFF5EB),
       'icon':  Icons.people_rounded,
     },
   };
