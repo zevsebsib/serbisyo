@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -24,6 +26,10 @@ class _AdminNotificationsScreenState
   List<Map<String, dynamic>> _allNotifs      = [];
   List<Map<String, dynamic>> _filteredNotifs = [];
   List<Map<String, dynamic>> _citizens       = [];
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _citizensSub;
+  final Map<String, StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
+      _notifSubs = {};
+  Timer? _realtimeDebounce;
 
   final _typeFilters = <Map<String, dynamic>>[
     {'key': 'all',             'label': 'All',            'icon': Icons.notifications_rounded},
@@ -37,17 +43,47 @@ class _AdminNotificationsScreenState
   void initState() {
     super.initState();
     _loadData();
+    _initRealtimeListeners();
   }
 
   @override
   void dispose() {
+    _citizensSub?.cancel();
+    for (final sub in _notifSubs.values) {
+      sub.cancel();
+    }
+    _notifSubs.clear();
+    _realtimeDebounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
 
+  void _initRealtimeListeners() {
+    _citizensSub = FirebaseFirestore.instance
+        .collection('users')
+        .where('role', isEqualTo: 'citizen')
+        .snapshots()
+        .listen((_) => _scheduleRealtimeReload());
+  }
+
+  void _scheduleRealtimeReload() {
+    if (!mounted) return;
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(
+      const Duration(milliseconds: 300),
+      () {
+        if (mounted) {
+          _loadData(showLoader: false);
+        }
+      },
+    );
+  }
+
   // ── Load 
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
+  Future<void> _loadData({bool showLoader = true}) async {
+    if (showLoader && mounted) {
+      setState(() => _loading = true);
+    }
     try {
       // Load citizens for dropdown in send dialog
       final citizenSnap = await FirebaseFirestore.instance
@@ -59,6 +95,8 @@ class _AdminNotificationsScreenState
         'fullName': d.data()['fullName'] ?? 'Citizen',
         'email':    d.data()['email'] ?? '',
       }).toList();
+
+      _syncNotificationItemListeners();
 
       // Load notifications per citizen to avoid collection-group permission
       // issues caused by unrelated "items" subcollections.
@@ -120,6 +158,32 @@ class _AdminNotificationsScreenState
       debugPrint('Notif error: $e');
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  void _syncNotificationItemListeners() {
+    final activeUids = _citizens
+        .map((c) => c['uid'] as String? ?? '')
+        .where((uid) => uid.isNotEmpty)
+        .toSet();
+
+    final toRemove = _notifSubs.keys
+        .where((uid) => !activeUids.contains(uid))
+        .toList();
+    for (final uid in toRemove) {
+      _notifSubs.remove(uid)?.cancel();
+    }
+
+    for (final uid in activeUids) {
+      if (_notifSubs.containsKey(uid)) continue;
+      _notifSubs[uid] = FirebaseFirestore.instance
+          .collection('notifications')
+          .doc(uid)
+          .collection('items')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .snapshots()
+          .listen((_) => _scheduleRealtimeReload(), onError: (_) {});
+    }
   }
 
   void _applyFilters() {

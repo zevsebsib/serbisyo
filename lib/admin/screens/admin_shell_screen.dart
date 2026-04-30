@@ -53,7 +53,7 @@ class _AdminShellScreenState
   // "View Available Services" added at index 2 to satisfy use case diagram.
   final List<_NavItem> _adminNavItems = [
     _NavItem(icon: Icons.dashboard_rounded,       label: 'Dashboard'),
-    _NavItem(icon: Icons.assignment_rounded,      label: 'My Requests'),
+    _NavItem(icon: Icons.assignment_rounded,      label: 'Requests'),
     _NavItem(icon: Icons.design_services_rounded, label: 'Services'),
     _NavItem(icon: Icons.notifications_rounded,   label: 'Notifications'),
     _NavItem(icon: Icons.settings_rounded,        label: 'Settings'),

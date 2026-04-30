@@ -1,4 +1,6 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -30,6 +32,10 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   DateTimeRange? _dateRange;
 
   final _searchController = TextEditingController();
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _requestsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _departmentsSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _adminSub;
+  Timer? _realtimeDebounce;
 
   static const int _pageSize = 10;
   int _currentPage = 0;
@@ -38,20 +44,58 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _initRealtimeListeners();
   }
 
   @override
   void dispose() {
+    _requestsSub?.cancel();
+    _departmentsSub?.cancel();
+    _adminSub?.cancel();
+    _realtimeDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
+  void _initRealtimeListeners() {
+    _requestsSub = FirebaseFirestore.instance
+        .collection('requests')
+        .snapshots()
+        .listen((_) => _scheduleRealtimeReload());
+
+    _departmentsSub = FirebaseFirestore.instance
+        .collection('departments')
+        .snapshots()
+        .listen((_) => _scheduleRealtimeReload());
+  }
+
+  void _scheduleRealtimeReload() {
+    if (!mounted) return;
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(
+      const Duration(milliseconds: 300),
+      () {
+        if (mounted) {
+          _loadData(showLoader: false);
+        }
+      },
+    );
+  }
+
   // ── Data loading ───────────────────────────────────────────────────────────
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
+  Future<void> _loadData({bool showLoader = true}) async {
+    if (showLoader && mounted) {
+      setState(() => _loading = true);
+    }
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     _currentUid = uid;
+
+    _adminSub ??= FirebaseFirestore.instance
+        .collection('admin')
+        .doc(uid)
+        .snapshots()
+        .listen((_) => _scheduleRealtimeReload());
 
     try {
       final adminDoc = await FirebaseFirestore.instance
@@ -72,33 +116,17 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       QuerySnapshot reqSnap;
 
       if (_role == 'superadmin') {
-        // Superadmin sees every request
         reqSnap = await FirebaseFirestore.instance
             .collection('requests')
             .orderBy('createdAt', descending: true)
             .get();
       } else {
-        // ── FIX: Staff sees requests assigned directly to them (assignedTo)
-        // AND requests routed to their department.
-        //
-        // Firestore does not support OR queries across different fields in a
-        // single query, so we run two separate queries and merge, deduplicating
-        // by document ID. This ensures staff see:
-        //   • Old requests assigned via assignedTo == uid (dashboard source)
-        //   • New requests routed by department == staffDepartment
-        //
-        // Previously only the department query ran, which returned 0 because
-        // existing requests were assigned via assignedTo before department
-        // routing was introduced.
-
-        // Query 1: directly assigned to this staff member
         final assignedSnap = await FirebaseFirestore.instance
             .collection('requests')
             .where('assignedTo', isEqualTo: uid)
             .orderBy('createdAt', descending: true)
             .get();
 
-        // Query 2: routed to staff's department (skip if dept not set)
         List<QueryDocumentSnapshot> deptDocs = [];
         if (_staffDepartment.isNotEmpty) {
           final deptQuery = await FirebaseFirestore.instance
@@ -108,14 +136,12 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
               .get();
           deptDocs = deptQuery.docs;
         }
-        // Merge and deduplicate by document ID
         final seen   = <String>{};
         final merged = <QueryDocumentSnapshot>[];
         for (final doc in [...assignedSnap.docs, ...deptDocs]) {
           if (seen.add(doc.id)) merged.add(doc);
         }
 
-        // Sort merged list by createdAt descending
         merged.sort((a, b) {
           final aTs = (a.data() as Map<String, dynamic>)['createdAt']
               as Timestamp?;
@@ -182,7 +208,9 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       debugPrint('Error: $e');
     }
 
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+    }
   }
 
   void _applyFilters() {
@@ -284,7 +312,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
               Text(
                 _role == 'superadmin'
                     ? 'All Requests'
-                    : 'My Requests',
+                    : 'Requests',
                 style: GoogleFonts.inter(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -920,13 +948,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                     color: const Color(0xFF3B82F6),
                     tooltip: 'View Details',
                     onTap: () => _showRequestDialog(r),
-                  ),
-                  const SizedBox(width: 6),
-                  _actionBtn(
-                    icon: Icons.edit_rounded,
-                    color: const Color(0xFF8B5CF6),
-                    tooltip: 'Update Status',
-                    onTap: () => _showUpdateStatusDialog(r),
                   ),
                 ],
               ),
@@ -1675,7 +1696,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                     ),
                   ),
 
-                  // Footer
+                  // Footer — Close button only
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 16),
@@ -1709,28 +1730,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.muted,
                               )),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            _showUpdateStatusDialog(r);
-                          },
-                          icon: const Icon(Icons.edit_rounded,
-                              size: 15),
-                          label: Text('Update Status',
-                              style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
-                          ),
                         ),
                       ],
                     ),
@@ -1797,502 +1796,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         ],
       ),
     );
-  }
-
-  // ── Update Status dialog ───────────────────────────────────────────────────
-  void _showUpdateStatusDialog(Map<String, dynamic> r) {
-    String selectedStatus    = r['status'] as String;
-    final noteController     = TextEditingController();
-    final finalDocController = TextEditingController(
-        text: r['finalDocumentUrl']?.toString() ?? '');
-    final reasonController   = TextEditingController();
-    bool  reasonRequired     = false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setInner) {
-          reasonRequired = selectedStatus == 'returned' ||
-              selectedStatus == 'rejected';
-
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
-            title: Text('Update Status',
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16)),
-            content: SizedBox(
-              width: 420,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text('Request: ${r['serviceName']}',
-                        style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: AppColors.muted)),
-                    const SizedBox(height: 16),
-                    Text('New Status',
-                        style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    ...[
-                      'submitted',
-                      'pending_review',
-                      'processing',
-                      'approved',
-                      'ready_for_pickup',
-                      'completed',
-                      'returned',
-                      'rejected',
-                    ].map((s) {
-                      final style      = getStatusStyle(s);
-                      final sColor     = style['color'] as Color;
-                      final sLabel     = style['label'] as String;
-                      final isSelected = selectedStatus == s;
-                      return GestureDetector(
-                        onTap: () =>
-                            setInner(() => selectedStatus = s),
-                        child: AnimatedContainer(
-                          duration: const Duration(
-                              milliseconds: 150),
-                          margin:
-                              const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? sColor
-                                    .withValues(alpha: 0.10)
-                                : const Color(0xFFF7F8FC),
-                            borderRadius:
-                                BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isSelected
-                                  ? sColor.withValues(
-                                      alpha: 0.40)
-                                  : const Color(0xFFEEEEEE),
-                              width: isSelected ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 8, height: 8,
-                                decoration: BoxDecoration(
-                                    color: sColor,
-                                    shape: BoxShape.circle),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(sLabel,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 13,
-                                          fontWeight: isSelected
-                                              ? FontWeight.w700
-                                              : FontWeight.w500,
-                                          color: isSelected
-                                              ? sColor
-                                              : const Color(
-                                                  0xFF444444),
-                                        )),
-                                    if (s == 'returned')
-                                      Text(
-                                        'Sends request back to citizen for correction',
-                                        style: GoogleFonts.inter(
-                                            fontSize: 10,
-                                            color: AppColors.muted),
-                                      ),
-                                    if (s == 'rejected')
-                                      Text(
-                                        'Permanently rejects the request',
-                                        style: GoogleFonts.inter(
-                                            fontSize: 10,
-                                            color: AppColors.muted),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              if (isSelected) ...[
-                                const Spacer(),
-                                Icon(
-                                    Icons.check_circle_rounded,
-                                    color: sColor,
-                                    size: 16),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: 8),
-
-                    // Required reason for returned / rejected
-                    if (selectedStatus == 'returned' ||
-                        selectedStatus == 'rejected') ...[
-                      Row(children: [
-                        Text(
-                          selectedStatus == 'returned'
-                              ? 'Return Reason'
-                              : 'Rejection Reason',
-                          style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(' *',
-                            style: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: AppColors.danger,
-                                fontWeight: FontWeight.w700)),
-                      ]),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: reasonController,
-                        maxLines: 3,
-                        style: GoogleFonts.inter(fontSize: 13),
-                        decoration: InputDecoration(
-                          hintText: selectedStatus == 'returned'
-                              ? 'Explain what the citizen needs to fix...'
-                              : 'Explain why this request is rejected...',
-                          hintStyle: GoogleFonts.inter(
-                              color: AppColors.muted,
-                              fontSize: 12),
-                          filled: true,
-                          fillColor: const Color(0xFFF7F8FC),
-                          contentPadding:
-                              const EdgeInsets.all(12),
-                          border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: Color(0xFFEEEEEE)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: Color(0xFFEEEEEE)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: AppColors.primary,
-                                width: 1.5),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'This reason will be visible to the citizen.',
-                        style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: AppColors.muted),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    if (selectedStatus == 'completed') ...[
-                      Text('Final Document URL (optional)',
-                          style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: finalDocController,
-                        style: GoogleFonts.inter(fontSize: 13),
-                        decoration: InputDecoration(
-                          hintText: 'https://...',
-                          hintStyle: GoogleFonts.inter(
-                              color: AppColors.muted,
-                              fontSize: 12),
-                          filled: true,
-                          fillColor: const Color(0xFFF7F8FC),
-                          contentPadding:
-                              const EdgeInsets.all(12),
-                          border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: Color(0xFFEEEEEE)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: Color(0xFFEEEEEE)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: AppColors.primary,
-                                width: 1.5),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-
-                    Text('Internal Note (optional)',
-                        style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: noteController,
-                      maxLines: 2,
-                      style: GoogleFonts.inter(fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText: 'Add an internal note...',
-                        hintStyle: GoogleFonts.inter(
-                            color: AppColors.muted,
-                            fontSize: 12),
-                        filled: true,
-                        fillColor: const Color(0xFFF7F8FC),
-                        contentPadding:
-                            const EdgeInsets.all(12),
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: Color(0xFFEEEEEE)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: Color(0xFFEEEEEE)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: AppColors.primary,
-                              width: 1.5),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text('Cancel',
-                    style: GoogleFonts.inter(
-                        color: AppColors.muted)),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (reasonRequired &&
-                      reasonController.text.trim().isEmpty) {
-                    _showSnack(
-                        'Please provide a reason before '
-                        '${selectedStatus == 'returned' ? 'returning' : 'rejecting'} '
-                        'the request.',
-                        AppColors.warning);
-                    return;
-                  }
-                  final note     = noteController.text.trim();
-                  final finalDoc = finalDocController.text.trim();
-                  final reason   = reasonController.text.trim();
-                  Navigator.pop(ctx);
-                  await _updateStatus(
-                    r['id'] as String,
-                    selectedStatus,
-                    note,
-                    finalDoc,
-                    reason,
-                    r['userId'] as String,
-                    r['trackingId'] as String,
-                    r['serviceName'] as String,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-                child: Text('Update',
-                    style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  // ── Update status + citizen notification ───────────────────────────────────
-  Future<void> _updateStatus(
-    String requestId,
-    String status,
-    String note,
-    String finalDocUrl,
-    String reason,
-    String userId,
-    String trackingId,
-    String serviceName,
-  ) async {
-    try {
-      final Map<String, dynamic> updateData = {
-        'status':    status,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'statusHistory': FieldValue.arrayUnion([
-          {
-            'status':    status,
-            'timestamp': Timestamp.now(),
-            'note':      note.isNotEmpty ? note : null,
-            'updatedBy': _currentUid,
-          }
-        ]),
-      };
-
-      if (status == 'returned' && reason.isNotEmpty) {
-        updateData['returnReason']    = reason;
-        updateData['rejectionReason'] = '';
-      }
-      if (status == 'rejected' && reason.isNotEmpty) {
-        updateData['rejectionReason'] = reason;
-        updateData['returnReason']    = '';
-      }
-      if (status == 'completed' && finalDocUrl.isNotEmpty) {
-        updateData['finalDocumentUrl'] = finalDocUrl;
-      }
-
-      await FirebaseFirestore.instance
-          .collection('requests')
-          .doc(requestId)
-          .update(updateData);
-
-      if (userId.isNotEmpty) {
-        String notifTitle = 'Request Update';
-        String notifBody  =
-            'Your request status has been updated.';
-        String notifType  = 'status_update';
-
-        switch (status) {
-          case 'pending_review':
-            notifTitle = 'Request Under Review';
-            notifBody  =
-                'Your request ($trackingId) for $serviceName '
-                'is now being reviewed by our staff.';
-            break;
-          case 'processing':
-            notifTitle = 'Request Being Processed';
-            notifBody  =
-                'Your request ($trackingId) for $serviceName '
-                'is currently being processed.';
-            break;
-          case 'approved':
-            notifTitle = 'Request Approved ✔';
-            notifBody  =
-                'Your request ($trackingId) for $serviceName '
-                'has been approved and is being finalized.';
-            break;
-          case 'ready_for_pickup':
-            notifTitle = 'Ready for Pick Up 📋';
-            notifBody  =
-                'Your document for $serviceName ($trackingId) '
-                'is ready. Please visit City Hall to claim it.';
-            notifType  = 'received';
-            break;
-          case 'completed':
-            notifTitle = 'Request Completed ✅';
-            notifBody  = finalDocUrl.isNotEmpty
-                ? 'Your request ($trackingId) is complete. '
-                  'Your document is available for download.'
-                : 'Your request ($trackingId) for $serviceName '
-                  'has been completed successfully.';
-            notifType  = 'completed';
-            break;
-          case 'returned':
-            notifTitle = 'Action Required – Request Returned';
-            notifBody  = reason.isNotEmpty
-                ? 'Your request ($trackingId) has been returned. '
-                  'Reason: $reason. Please update and resubmit.'
-                : 'Your request ($trackingId) for $serviceName '
-                  'has been returned. Please review and resubmit.';
-            notifType  = 'action_required';
-            break;
-          case 'rejected':
-            notifTitle = 'Request Rejected';
-            notifBody  = reason.isNotEmpty
-                ? 'Your request ($trackingId) was rejected. '
-                  'Reason: $reason'
-                : 'Your request ($trackingId) for $serviceName '
-                  'could not be processed. Please contact City Hall.';
-            notifType  = 'action_required';
-            break;
-          default:
-            notifBody =
-                'Your request ($trackingId) status has been '
-                'updated to ${getStatusStyle(status)['label']};';
-        }
-
-        await FirebaseFirestore.instance
-            .collection('notifications')
-            .doc(userId)
-            .collection('items')
-            .add({
-          'title':     notifTitle,
-          'body':      notifBody,
-          'type':      notifType,
-          'isRead':    false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      if (mounted) {
-        final historyEntry = {
-          'status': status,
-          'timestamp': Timestamp.now(),
-          'note': note.isNotEmpty ? note : null,
-          'updatedBy': _currentUid,
-        };
-
-        _patchRequestLocal(
-          requestId,
-          status: status,
-          returnReason:
-              status == 'returned' ? reason : null,
-          rejectionReason:
-              status == 'rejected' ? reason : null,
-          clearReturnReason: status == 'rejected',
-          clearRejectionReason: status == 'returned',
-          finalDocumentUrl:
-              status == 'completed' && finalDocUrl.isNotEmpty
-                  ? finalDocUrl
-                  : null,
-          statusHistoryEntry: historyEntry,
-        );
-
-        _showSnack(
-          status == 'returned'
-              ? 'Request returned to citizen ✔'
-              : 'Status updated successfully ✔',
-          AppColors.success,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _showSnack('Failed to update: $e', AppColors.danger);
-      }
-    }
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -2396,10 +1899,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  _MergedQuerySnapshot
-//
-//  A minimal QuerySnapshot-compatible wrapper that lets us pass merged +
-//  deduplicated document lists from two separate Firestore queries into the
-//  same processing code that expects a QuerySnapshot.
 // ─────────────────────────────────────────────────────────────────────────────
 class _MergedQuerySnapshot implements QuerySnapshot {
   final List<QueryDocumentSnapshot> _docs;

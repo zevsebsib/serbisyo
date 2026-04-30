@@ -38,7 +38,6 @@ class _AdminDepartmentsScreenState
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      // Load staff for head assignment
       final staffSnap = await FirebaseFirestore.instance
           .collection('admin')
           .where('role', isEqualTo: 'admin')
@@ -50,18 +49,15 @@ class _AdminDepartmentsScreenState
         'email':    d.data()['email'] ?? '',
       }).toList();
 
-      // Load departments
       final deptSnap = await FirebaseFirestore.instance
           .collection('departments')
           .orderBy('name')
           .get();
 
-      // Load staff per department
       final staffDeptSnap = await FirebaseFirestore.instance
           .collection('admin')
           .get();
 
-      // Build map: deptId → staff list
       final Map<String, List<Map<String, dynamic>>> deptStaffMap = {};
       for (final s in staffDeptSnap.docs) {
         final data   = s.data();
@@ -76,7 +72,6 @@ class _AdminDepartmentsScreenState
         });
       }
 
-      // Build head name map
       final Map<String, String> headNames = {};
       for (final s in _staffList) {
         headNames[s['uid'] as String] = s['fullName'] as String;
@@ -166,7 +161,6 @@ class _AdminDepartmentsScreenState
             ],
           ),
         ),
-        // Refresh
         Container(
           width: 40, height: 40,
           decoration: BoxDecoration(
@@ -181,7 +175,6 @@ class _AdminDepartmentsScreenState
           ),
         ),
         const SizedBox(width: 10),
-        // Add department
         ElevatedButton.icon(
           onPressed: () => _showDeptDialog(),
           icon: const Icon(Icons.add_rounded, size: 16),
@@ -412,10 +405,10 @@ class _AdminDepartmentsScreenState
     return GridView.builder(
       gridDelegate:
           const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.5,
+        crossAxisCount: 4,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
+        childAspectRatio: 2.4,
       ),
       itemCount: _filteredDepartments.length,
       itemBuilder: (_, i) =>
@@ -423,248 +416,309 @@ class _AdminDepartmentsScreenState
     );
   }
 
+  // ── Compact clickable department card ─────────────────────────────────────
   Widget _buildDeptCard(Map<String, dynamic> dept) {
     final isActive   = dept['isActive'] as bool? ?? true;
-    final staffList  = dept['staffList'] as List;
-    final staffCount = staffList.length;
+    final staffCount = (dept['staffList'] as List).length;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isActive
-              ? const Color(0xFFEEEEEE)
-              : const Color(0xFFEF4444).withValues(alpha: 0.20),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Card header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showCardActions(dept),
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: AppColors.primary.withValues(alpha: 0.03),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
               color: isActive
-                  ? AppColors.primary.withValues(alpha: 0.06)
-                  : const Color(0xFFF5F5F5),
-              borderRadius: const BorderRadius.only(
-                topLeft:  Radius.circular(16),
-                topRight: Radius.circular(16),
+                  ? const Color(0xFFEEEEEE)
+                  : const Color(0xFFEF4444).withValues(alpha: 0.20),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              // Icon
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? AppColors.primary.withValues(alpha: 0.10)
+                      : const Color(0xFFEEEEEE),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.account_tree_rounded,
+                  color: isActive
+                      ? AppColors.primary
+                      : AppColors.muted,
+                  size: 17,
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              // Name + status
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      dept['name'] as String,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF111111),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? const Color(0xFF10B981)
+                                    .withValues(alpha: 0.10)
+                                : const Color(0xFFEF4444)
+                                    .withValues(alpha: 0.10),
+                            borderRadius:
+                                BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            isActive ? 'Active' : 'Inactive',
+                            style: GoogleFonts.inter(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: isActive
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFFEF4444),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(Icons.badge_rounded,
+                            size: 11, color: AppColors.muted),
+                        const SizedBox(width: 3),
+                        Text(
+                          '$staffCount staff',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Tap hint chevron
+              Icon(Icons.chevron_right_rounded,
+                  size: 16, color: AppColors.muted.withValues(alpha: 0.5)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Card action bottom sheet ───────────────────────────────────────────────
+  void _showCardActions(Map<String, dynamic> dept) {
+    final isActive = dept['isActive'] as bool? ?? true;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft:  Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFDDDDDD),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            child: Row(
+            const SizedBox(height: 16),
+
+            // Dept info header
+            Row(
               children: [
                 Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: isActive
-                        ? AppColors.primary.withValues(alpha: 0.12)
-                        : const Color(0xFFEEEEEE),
+                    color: AppColors.primary.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    Icons.account_tree_rounded,
-                    color: isActive
-                        ? AppColors.primary
-                        : AppColors.muted,
-                    size: 20,
-                  ),
+                  child: const Icon(Icons.account_tree_rounded,
+                      color: AppColors.primary, size: 20),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(dept['name'] as String,
-                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                            fontSize: 14,
+                            fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFF111111),
                           )),
-                      Container(
-                        margin: const EdgeInsets.only(top: 3),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
+                      Text(
+                        isActive ? 'Active Department' : 'Inactive Department',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
                           color: isActive
                               ? const Color(0xFF10B981)
-                                  .withValues(alpha: 0.10)
-                              : const Color(0xFFEF4444)
-                                  .withValues(alpha: 0.10),
-                          borderRadius:
-                              BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          isActive ? 'Active' : 'Inactive',
-                          style: GoogleFonts.inter(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: isActive
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFEF4444),
-                          ),
+                              : const Color(0xFFEF4444),
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
-                ),
-                // Options menu
-                PopupMenuButton<String>(
-                  onSelected: (v) =>
-                      _handleCardAction(v, dept),
-                  icon: const Icon(Icons.more_vert_rounded,
-                      size: 18, color: AppColors.muted),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  itemBuilder: (_) => [
-                    _popupItem('edit', Icons.edit_rounded,
-                        'Edit', const Color(0xFF5C6BC0)),
-                    _popupItem('staff',
-                        Icons.people_rounded,
-                        'View Staff',
-                        const Color(0xFF3B82F6)),
-                    _popupItem(
-                        'toggle',
-                        isActive
-                            ? Icons.block_rounded
-                            : Icons.check_circle_rounded,
-                        isActive ? 'Deactivate' : 'Activate',
-                        isActive
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFF10B981)),
-                    _popupItem('delete',
-                        Icons.delete_rounded,
-                        'Delete',
-                        const Color(0xFFEF4444)),
-                  ],
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: Color(0xFFF0F0F0)),
+            const SizedBox(height: 8),
 
-          // Card body
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+            // Actions
+            _actionTile(
+              icon: Icons.edit_rounded,
+              iconColor: const Color(0xFF5C6BC0),
+              iconBg: const Color(0xFFEDE7F6),
+              label: 'Edit',
+              subtitle: 'Update department details',
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDeptDialog(dept: dept);
+              },
+            ),
+            _actionTile(
+              icon: Icons.people_rounded,
+              iconColor: const Color(0xFF3B82F6),
+              iconBg: const Color(0xFFEFF6FF),
+              label: 'View Staff',
+              subtitle: 'See assigned staff members',
+              onTap: () {
+                Navigator.pop(ctx);
+                _showStaffDialog(dept);
+              },
+            ),
+            _actionTile(
+              icon: isActive
+                  ? Icons.block_rounded
+                  : Icons.check_circle_rounded,
+              iconColor: isActive
+                  ? const Color(0xFFF59E0B)
+                  : const Color(0xFF10B981),
+              iconBg: isActive
+                  ? const Color(0xFFFFFBEB)
+                  : const Color(0xFFECFDF5),
+              label: isActive ? 'Deactivate' : 'Activate',
+              subtitle: isActive
+                  ? 'Disable this department'
+                  : 'Re-enable this department',
+              onTap: () {
+                Navigator.pop(ctx);
+                _toggleActive(
+                    dept['id'] as String,
+                    dept['isActive'] as bool? ?? true);
+              },
+            ),
+            _actionTile(
+              icon: Icons.delete_rounded,
+              iconColor: const Color(0xFFEF4444),
+              iconBg: const Color(0xFFFEF2F2),
+              label: 'Delete',
+              subtitle: 'Permanently remove department',
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete(
+                    dept['id'] as String,
+                    dept['name'] as String);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String label,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: 4, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: iconColor, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Description
-                  Text(
-                    (dept['description'] as String?)
-                                ?.isNotEmpty ==
-                            true
-                        ? dept['description'] as String
-                        : 'No description provided.',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: AppColors.muted,
-                      height: 1.5,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Footer info row
-                  Row(
-                    children: [
-                      // Head
-                      Expanded(
-                        child: Row(
-                          children: [
-                            const Icon(
-                                Icons.manage_accounts_rounded,
-                                size: 13,
-                                color: AppColors.muted),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                dept['headName'] as String,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  color: AppColors.muted,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Staff count
-                      Row(
-                        children: [
-                          const Icon(Icons.badge_rounded,
-                              size: 13,
-                              color: AppColors.muted),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$staffCount staff',
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                  Text(label,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF111111),
+                      )),
+                  Text(subtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: AppColors.muted,
+                      )),
                 ],
               ),
             ),
-          ),
-        ],
+            Icon(Icons.chevron_right_rounded,
+                size: 16, color: AppColors.muted),
+          ],
+        ),
       ),
     );
-  }
-
-  PopupMenuItem<String> _popupItem(
-      String value, IconData icon, String label, Color color) {
-    return PopupMenuItem<String>(
-      value: value,
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 10),
-          Text(label,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF333333),
-              )),
-        ],
-      ),
-    );
-  }
-
-  void _handleCardAction(
-      String action, Map<String, dynamic> dept) {
-    switch (action) {
-      case 'edit':
-        _showDeptDialog(dept: dept);
-        break;
-      case 'staff':
-        _showStaffDialog(dept);
-        break;
-      case 'toggle':
-        _toggleActive(
-            dept['id'] as String,
-            dept['isActive'] as bool? ?? true);
-        break;
-      case 'delete':
-        _confirmDelete(
-            dept['id'] as String,
-            dept['name'] as String);
-        break;
-    }
   }
 
   // ── Add / Edit dialog ──────────────────────────────────────────────────────
@@ -697,218 +751,207 @@ class _AdminDepartmentsScreenState
               width: double.infinity,
               constraints: BoxConstraints(maxWidth: dialogMaxWidth),
               padding: EdgeInsets.all(isNarrow ? 20 : 28),
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Dialog title
-                  Row(
-                    children: [
-                      Container(
-                        width: 40, height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary
-                              .withValues(alpha: 0.10),
-                          borderRadius:
-                              BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                            Icons.account_tree_rounded,
-                            color: AppColors.primary,
-                            size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          isEdit
-                              ? 'Edit Department'
-                              : 'Add Department',
-                          style: GoogleFonts.inter(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF111111),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 40, height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary
+                                .withValues(alpha: 0.10),
+                            borderRadius:
+                                BorderRadius.circular(10),
                           ),
+                          child: const Icon(
+                              Icons.account_tree_rounded,
+                              color: AppColors.primary,
+                              size: 20),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close,
-                            size: 18,
-                            color: AppColors.muted),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Name field
-                  Text('Department Name',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF333333),
-                      )),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: nameCtrl,
-                    style: GoogleFonts.inter(fontSize: 13),
-                    validator: (v) => v == null || v.isEmpty
-                        ? 'Name is required'
-                        : null,
-                    decoration: _inputDeco(
-                        'e.g. Civil Registry Office'),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Description field
-                  Text('Description',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF333333),
-                      )),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: descCtrl,
-                    maxLines: 3,
-                    style: GoogleFonts.inter(fontSize: 13),
-                    decoration: _inputDeco(
-                        'Brief description of this department...'),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Department head
-                  Text('Department Head',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF333333),
-                      )),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F8FC),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: const Color(0xFFEEEEEE)),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedHead,
-                        isExpanded: true,
-                        hint: Text('Select department head...',
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            isEdit
+                                ? 'Edit Department'
+                                : 'Add Department',
                             style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: AppColors.muted)),
-                        icon: const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 16,
-                            color: AppColors.muted),
-                        style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: const Color(0xFF333333)),
-                        items: [
-                          DropdownMenuItem<String>(
-                            value: null,
-                            child: Text('None',
-                                style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    color: AppColors.muted)),
-                          ),
-                          ..._staffList.map(
-                            (s) => DropdownMenuItem<String>(
-                              value: s['uid'] as String,
-                              child: Text(
-                                  s['fullName'] as String,
-                                  style: GoogleFonts.inter(
-                                      fontSize: 13)),
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF111111),
                             ),
                           ),
-                        ],
-                        onChanged: (v) =>
-                            setInner(() => selectedHead = v),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(Icons.close,
+                              size: 18,
+                              color: AppColors.muted),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Text('Department Name',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF333333),
+                        )),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: nameCtrl,
+                      style: GoogleFonts.inter(fontSize: 13),
+                      validator: (v) => v == null || v.isEmpty
+                          ? 'Name is required'
+                          : null,
+                      decoration: _inputDeco(
+                          'e.g. Civil Registry Office'),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Description',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF333333),
+                        )),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: descCtrl,
+                      maxLines: 3,
+                      style: GoogleFonts.inter(fontSize: 13),
+                      decoration: _inputDeco(
+                          'Brief description of this department...'),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Department Head',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF333333),
+                        )),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F8FC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: const Color(0xFFEEEEEE)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedHead,
+                          isExpanded: true,
+                          hint: Text('Select department head...',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: AppColors.muted)),
+                          icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: AppColors.muted),
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFF333333)),
+                          items: [
+                            DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('None',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      color: AppColors.muted)),
+                            ),
+                            ..._staffList.map(
+                              (s) => DropdownMenuItem<String>(
+                                value: s['uid'] as String,
+                                child: Text(
+                                    s['fullName'] as String,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 13)),
+                              ),
+                            ),
+                          ],
+                          onChanged: (v) =>
+                              setInner(() => selectedHead = v),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Action buttons
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                              color: Color(0xFFEEEEEE)),
-                          shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 12),
+                    const SizedBox(height: 28),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                                color: Color(0xFFEEEEEE)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 12),
+                          ),
+                          child: Text('Cancel',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.muted,
+                              )),
                         ),
-                        child: Text('Cancel',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.muted,
-                            )),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          // ✅ FIX 1: curly braces added
-                          if (!formKey.currentState!.validate()) {
-                            return;
-                          }
-                          Navigator.pop(ctx);
-                          if (isEdit) {
-                            // ✅ FIX 2: removed unnecessary ! on dept
-                            await _updateDept(
-                              dept['id'] as String,
-                              nameCtrl.text.trim(),
-                              descCtrl.text.trim(),
-                              selectedHead,
-                            );
-                          } else {
-                            await _addDept(
-                              nameCtrl.text.trim(),
-                              descCtrl.text.trim(),
-                              selectedHead,
-                            );
-                          }
-                        },
-                        icon: Icon(
-                            isEdit
-                                ? Icons.save_rounded
-                                : Icons.add_rounded,
-                            size: 16),
-                        label: Text(
-                            isEdit ? 'Save Changes' : 'Add',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            )),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 12),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            if (!formKey.currentState!.validate()) {
+                              return;
+                            }
+                            Navigator.pop(ctx);
+                            if (isEdit) {
+                              await _updateDept(
+                                dept['id'] as String,
+                                nameCtrl.text.trim(),
+                                descCtrl.text.trim(),
+                                selectedHead,
+                              );
+                            } else {
+                              await _addDept(
+                                nameCtrl.text.trim(),
+                                descCtrl.text.trim(),
+                                selectedHead,
+                              );
+                            }
+                          },
+                          icon: Icon(
+                              isEdit
+                                  ? Icons.save_rounded
+                                  : Icons.add_rounded,
+                              size: 16),
+                          label: Text(
+                              isEdit ? 'Save Changes' : 'Add',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              )),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 12),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
           );
         },
@@ -971,212 +1014,208 @@ class _AdminDepartmentsScreenState
               vertical: 24),
           child: Container(
             width: double.infinity,
-            constraints: BoxConstraints(maxWidth: dialogMaxWidth, maxHeight: 500),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFFFF9200),
-                      Color(0xFFFF5E00)
-                    ],
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft:  Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.people_rounded,
-                        color: Colors.white, size: 22),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            dept['name'] as String,
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Text(
-                            '${staffList.length} staff member${staffList.length != 1 ? 's' : ''}',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: Colors.white
-                                  .withValues(alpha: 0.80),
-                            ),
-                          ),
-                        ],
-                      ),
+            constraints: BoxConstraints(
+                maxWidth: dialogMaxWidth, maxHeight: 500),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFFFF9200),
+                        Color(0xFFFF5E00)
+                      ],
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close,
-                          color: Colors.white, size: 20),
+                    borderRadius: BorderRadius.only(
+                      topLeft:  Radius.circular(20),
+                      topRight: Radius.circular(20),
                     ),
-                  ],
-                ),
-              ),
-
-              // Staff list
-              Expanded(
-                child: staffList.isEmpty
-                    ? Center(
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.people_rounded,
+                          color: Colors.white, size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
                         child: Column(
-                          mainAxisAlignment:
-                              MainAxisAlignment.center,
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.badge_outlined,
-                                size: 40,
-                                color: AppColors.muted
-                                    .withValues(alpha: 0.3)),
-                            const SizedBox(height: 10),
-                            Text('No staff assigned',
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: AppColors.muted,
-                                )),
+                            Text(
+                              dept['name'] as String,
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              '${staffList.length} staff member${staffList.length != 1 ? 's' : ''}',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: Colors.white
+                                    .withValues(alpha: 0.80),
+                              ),
+                            ),
                           ],
                         ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: staffList.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 8),
-                        itemBuilder: (_, i) {
-                          final s = staffList[i]
-                              as Map<String, dynamic>;
-                          final initials =
-                              _initials(s['fullName'] as String);
-                          final isHead =
-                              s['uid'] == dept['headId'];
-                          return Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF7F8FC),
-                              borderRadius:
-                                  BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: const Color(
-                                      0xFFEEEEEE)),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 36, height: 36,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary
-                                        .withValues(alpha: 0.10),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(
-                                    child: Text(initials,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 13,
-                                          fontWeight:
-                                              FontWeight.w700,
-                                          color:
-                                              AppColors.primary,
-                                        )),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                          s['fullName'] as String,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 13,
-                                            fontWeight:
-                                                FontWeight.w600,
-                                            color: const Color(
-                                                0xFF222222),
-                                          )),
-                                      Text(s['email'] as String,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 11,
-                                            color: AppColors.muted,
-                                          )),
-                                    ],
-                                  ),
-                                ),
-                                if (isHead)
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close,
+                            color: Colors.white, size: 20),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: staffList.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment:
+                                MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.badge_outlined,
+                                  size: 40,
+                                  color: AppColors.muted
+                                      .withValues(alpha: 0.3)),
+                              const SizedBox(height: 10),
+                              Text('No staff assigned',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: AppColors.muted,
+                                  )),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: staffList.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (_, i) {
+                            final s = staffList[i]
+                                as Map<String, dynamic>;
+                            final initials =
+                                _initials(s['fullName'] as String);
+                            final isHead =
+                                s['uid'] == dept['headId'];
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF7F8FC),
+                                borderRadius:
+                                    BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: const Color(
+                                        0xFFEEEEEE)),
+                              ),
+                              child: Row(
+                                children: [
                                   Container(
-                                    padding:
-                                        const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 3),
+                                    width: 36, height: 36,
                                     decoration: BoxDecoration(
                                       color: AppColors.primary
                                           .withValues(alpha: 0.10),
-                                      borderRadius:
-                                          BorderRadius.circular(20),
+                                      shape: BoxShape.circle,
                                     ),
-                                    child: Text('Head',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 10,
-                                          fontWeight:
-                                              FontWeight.w700,
-                                          color: AppColors.primary,
-                                        )),
+                                    child: Center(
+                                      child: Text(initials,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            fontWeight:
+                                                FontWeight.w700,
+                                            color:
+                                                AppColors.primary,
+                                          )),
+                                    ),
                                   ),
-                              ],
-                            ),
-                          );
-                        },
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                            s['fullName'] as String,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 13,
+                                              fontWeight:
+                                                  FontWeight.w600,
+                                              color: const Color(
+                                                  0xFF222222),
+                                            )),
+                                        Text(s['email'] as String,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 11,
+                                              color: AppColors.muted,
+                                            )),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isHead)
+                                    Container(
+                                      padding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary
+                                            .withValues(alpha: 0.10),
+                                        borderRadius:
+                                            BorderRadius.circular(20),
+                                      ),
+                                      child: Text('Head',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            fontWeight:
+                                                FontWeight.w700,
+                                            color: AppColors.primary,
+                                          )),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 16),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF7F8FC),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft:  Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
+                        ),
+                        child: Text('Close',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            )),
                       ),
-              ),
-
-              // Footer
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF7F8FC),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft:  Radius.circular(20),
-                    bottomRight: Radius.circular(20),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
-                      ),
-                      child: Text('Close',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          )),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         );
       },

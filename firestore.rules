@@ -23,6 +23,58 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admin/$(request.auth.uid));
     }
 
+    function adminDepartmentId() {
+      return isAnyAdmin() ?
+        (
+          get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.departmentId != null
+            ? get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.departmentId
+            : (
+              get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.DepartmentId != null
+                ? get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.DepartmentId
+                : ''
+            )
+        ) :
+        '';
+    }
+
+    function adminDepartmentName() {
+      return isAnyAdmin() ?
+        (
+          get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.department != null
+            ? get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.department
+            : (
+              get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.Department != null
+                ? get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.Department
+                : ''
+            )
+        ) :
+        '';
+    }
+
+    function matchesDepartmentCategory(serviceData) {
+      return
+        (adminDepartmentName() == 'City Administration Office' && serviceData.categoryId == 'mayor') ||
+        (adminDepartmentName() == 'Office of the City Civil Registrar' && serviceData.categoryId == 'civil') ||
+        (adminDepartmentName() == 'Office of the City Community Affairs' && serviceData.categoryId == 'community');
+    }
+
+    function canManageService(serviceData) {
+      return isSuperAdmin() || (
+        isAdminStaff() &&
+        (
+          serviceData.departmentId == adminDepartmentId() ||
+          serviceData.department == adminDepartmentName() ||
+          matchesDepartmentCategory(serviceData)
+        )
+      );
+    }
+
+    function isStatusOnlyServiceUpdate() {
+      return request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['isActive', 'updatedAt']);
+    }
+
     // ── Admin collection ───────────────────────────────────────────
     match /admin/{adminId} {
       allow read:   if isSignedIn();
@@ -47,7 +99,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         resource.data.userId == request.auth.uid ||
         isSuperAdmin() ||
-        isAdminStaff()
+        isAnyAdmin()
       );
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
@@ -75,7 +127,11 @@ service cloud.firestore {
     match /services/{serviceId} {
       allow read:   if isSignedIn();
       allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin();
+      allow update: if isSuperAdmin() ||
+        (isAnyAdmin() && isStatusOnlyServiceUpdate()) ||
+        (isAdminStaff() &&
+          canManageService(resource.data) &&
+          isStatusOnlyServiceUpdate());
       allow delete: if isSuperAdmin();
     }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -12,113 +14,113 @@ import '../../theme/app_theme.dart';
 const List<Map<String, dynamic>> _seedServices = [
   // ── City Mayor's Office ───────────────────────────────────────────────────
   {
-    'name':         'Provision of Consumer Assistance',
-    'categoryId':   'mayor',
+    'name': 'Provision of Consumer Assistance',
+    'categoryId': 'mayor',
     'categoryName': "City Administration Office",
-    'department':   'City Administration Office',
-    'isActive':     true,
+    'department': 'City Administration Office',
+    'isActive': true,
   },
   {
-    'name':         'Issuance of Certificate of Good Moral Character',
-    'categoryId':   'mayor',
+    'name': 'Issuance of Certificate of Good Moral Character',
+    'categoryId': 'mayor',
     'categoryName': "City Administration Office",
-    'department':   'City Administration Office',
-    'isActive':     true,
+    'department': 'City Administration Office',
+    'isActive': true,
   },
   {
-    'name':         'Permit for Use of Government Facilities and Equipment',
-    'categoryId':   'mayor',
+    'name': 'Permit for Use of Government Facilities and Equipment',
+    'categoryId': 'mayor',
     'categoryName': "City Administration Office",
-    'department':   'City Administration Office',
-    'isActive':     true,
+    'department': 'City Administration Office',
+    'isActive': true,
   },
   {
-    'name':         'Receipt of Complaints',
-    'categoryId':   'mayor',
+    'name': 'Receipt of Complaints',
+    'categoryId': 'mayor',
     'categoryName': "City Administration Office",
-    'department':   'City Administration Office',
-    'isActive':     true,
+    'department': 'City Administration Office',
+    'isActive': true,
   },
 
   // ── Civil Registry ────────────────────────────────────────────────────────
   {
-    'name':         'Registration of Live Birth, Death and Marriage',
-    'categoryId':   'civil',
+    'name': 'Registration of Live Birth, Death and Marriage',
+    'categoryId': 'civil',
     'categoryName': 'Civil Registry',
-    'department':   'Office of the City Civil Registrar',
-    'isActive':     true,
+    'department': 'Office of the City Civil Registrar',
+    'isActive': true,
   },
   {
-    'name':         'Late Registration of Birth, Death or Marriage',
-    'categoryId':   'civil',
+    'name': 'Late Registration of Birth, Death or Marriage',
+    'categoryId': 'civil',
     'categoryName': 'Civil Registry',
-    'department':   'Office of the City Civil Registrar',
-    'isActive':     true,
+    'department': 'Office of the City Civil Registrar',
+    'isActive': true,
   },
   {
-    'name':         'Application for Marriage License',
-    'categoryId':   'civil',
+    'name': 'Application for Marriage License',
+    'categoryId': 'civil',
     'categoryName': 'Civil Registry',
-    'department':   'Office of the City Civil Registrar',
-    'isActive':     true,
+    'department': 'Office of the City Civil Registrar',
+    'isActive': true,
   },
   {
-    'name':         'Out-of-Town Registration / Reporting',
-    'categoryId':   'civil',
+    'name': 'Out-of-Town Registration / Reporting',
+    'categoryId': 'civil',
     'categoryName': 'Civil Registry',
-    'department':   'Office of the City Civil Registrar',
-    'isActive':     true,
+    'department': 'Office of the City Civil Registrar',
+    'isActive': true,
   },
   {
-    'name':         'Registration of Legal Instruments',
-    'categoryId':   'civil',
+    'name': 'Registration of Legal Instruments',
+    'categoryId': 'civil',
     'categoryName': 'Civil Registry',
-    'department':   'Office of the City Civil Registrar',
-    'isActive':     true,
+    'department': 'Office of the City Civil Registrar',
+    'isActive': true,
   },
   {
-    'name':         'Issuance of Certified Machine Copy',
-    'categoryId':   'civil',
+    'name': 'Issuance of Certified Machine Copy',
+    'categoryId': 'civil',
     'categoryName': 'Civil Registry',
-    'department':   'Office of the City Civil Registrar',
-    'isActive':     true,
+    'department': 'Office of the City Civil Registrar',
+    'isActive': true,
   },
 
   // ── Community Affairs ─────────────────────────────────────────────────────
   {
-    'name':         'Local Employment Referral (Applicants)',
-    'categoryId':   'community',
+    'name': 'Local Employment Referral (Applicants)',
+    'categoryId': 'community',
     'categoryName': 'Community Affairs',
-    'department':   'Office of the City Community Affairs',
-    'isActive':     true,
+    'department': 'Office of the City Community Affairs',
+    'isActive': true,
   },
   {
-    'name':         'Local Employment Referral (Employers)',
-    'categoryId':   'community',
+    'name': 'Local Employment Referral (Employers)',
+    'categoryId': 'community',
     'categoryName': 'Community Affairs',
-    'department':   'Office of the City Community Affairs',
-    'isActive':     true,
+    'department': 'Office of the City Community Affairs',
+    'isActive': true,
   },
   {
-    'name':         'SPES Program',
-    'categoryId':   'community',
+    'name': 'SPES Program',
+    'categoryId': 'community',
     'categoryName': 'Community Affairs',
-    'department':   'Office of the City Community Affairs',
-    'isActive':     true,
+    'department': 'Office of the City Community Affairs',
+    'isActive': true,
   },
   {
-    'name':         'Livelihood Assistance (Animal Dispersal)',
-    'categoryId':   'community',
+    'name': 'Livelihood Assistance (Animal Dispersal)',
+    'categoryId': 'community',
     'categoryName': 'Community Affairs',
-    'department':   'Office of the City Community Affairs',
-    'isActive':     true,
+    'department': 'Office of the City Community Affairs',
+    'isActive': true,
   },
   {
-    'name':         'Sama-Summer Together Program',
-    'categoryId':   'community',
+    'name': 'Sama-Summer Together Program',
+    'categoryId': 'community',
     'categoryName': 'Community Affairs',
-    'department':   'Office of the City Community Affairs',
-    'isActive':     true,
+    'department': 'Office of the City Community Affairs',
+    'isActive': true,
   },
 ];
 
@@ -127,21 +129,22 @@ class AdminServicesScreen extends StatefulWidget {
   const AdminServicesScreen({super.key});
 
   @override
-  State<AdminServicesScreen> createState() =>
-      _AdminServicesScreenState();
+  State<AdminServicesScreen> createState() => _AdminServicesScreenState();
 }
 
-class _AdminServicesScreenState
-    extends State<AdminServicesScreen> {
-  String _role        = '';
-  bool   _loading     = true;
-  bool   _seeding     = false;
+class _AdminServicesScreenState extends State<AdminServicesScreen> {
+  String _role = '';
+  String _staffDepartment = ''; // Staff's assigned department
+  String _staffDepartmentId = ''; // Preferred staff department key
+  bool _loading = true;
+  bool _seeding = false;
   String _searchQuery = '';
-  String _categoryFilter = 'all';
 
-  List<Map<String, dynamic>> _allServices      = [];
+  List<Map<String, dynamic>> _allServices = [];
   List<Map<String, dynamic>> _filteredServices = [];
-  final Map<String, String>  _deptNameToId     = {};
+  final Map<String, String> _deptNameToId = {};
+  final Map<String, String> _deptIdToCategory = {};
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _servicesSub;
 
   final _searchController = TextEditingController();
 
@@ -150,20 +153,20 @@ class _AdminServicesScreenState
     'mayor': {
       'label': "City Administration Office",
       'color': Color(0xFF5B6AF0),
-      'bg':    Color(0xFFEEF0FD),
-      'icon':  Icons.account_balance_rounded,
+      'bg': Color(0xFFEEF0FD),
+      'icon': Icons.account_balance_rounded,
     },
     'civil': {
       'label': 'Civil Registry',
       'color': Color(0xFF00A86B),
-      'bg':    Color(0xFFE6F7F1),
-      'icon':  Icons.description_rounded,
+      'bg': Color(0xFFE6F7F1),
+      'icon': Icons.description_rounded,
     },
     'community': {
       'label': 'Community Affairs',
       'color': Color(0xFFFF8000),
-      'bg':    Color(0xFFFFF5EB),
-      'icon':  Icons.people_rounded,
+      'bg': Color(0xFFFFF5EB),
+      'icon': Icons.people_rounded,
     },
   };
 
@@ -175,6 +178,7 @@ class _AdminServicesScreenState
 
   @override
   void dispose() {
+    _servicesSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -182,26 +186,42 @@ class _AdminServicesScreenState
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      // Load role
+      // Load role and department
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
-        final adminDoc = await FirebaseFirestore.instance
-            .collection('admin')
-            .doc(uid)
-            .get();
+        final adminDoc =
+            await FirebaseFirestore.instance.collection('admin').doc(uid).get();
         _role = adminDoc.data()?['role'] ?? 'admin';
+        // Store staff's department for filtering
+        if (_role == 'admin') {
+          final adminData = adminDoc.data() ?? {};
+          _staffDepartment = ((adminData['department'] as String?) ??
+                  (adminData['Department'] as String?) ??
+                  '')
+              .trim();
+          _staffDepartmentId = ((adminData['departmentId'] as String?) ??
+                  (adminData['DepartmentId'] as String?) ??
+                  '')
+              .trim();
+        }
       }
 
       // Build Department Name -> Department Doc ID lookup.
-      final departmentsSnap = await FirebaseFirestore.instance
-          .collection('departments')
-          .get();
+      final departmentsSnap =
+          await FirebaseFirestore.instance.collection('departments').get();
       _deptNameToId
         ..clear()
         ..addEntries(departmentsSnap.docs.map((d) {
           final name = d.data()['name']?.toString() ?? '';
           return MapEntry(name, d.id);
         }).where((e) => e.key.isNotEmpty));
+      _deptIdToCategory
+        ..clear()
+        ..addEntries(departmentsSnap.docs.map((d) {
+          final name = d.data()['name']?.toString() ?? '';
+          final categoryId = _categoryIdForDepartmentName(name);
+          return MapEntry(d.id, categoryId ?? '');
+        }).where((e) => e.value.isNotEmpty));
 
       // Check if services collection is empty — seed if so
       final snap = await FirebaseFirestore.instance
@@ -213,30 +233,69 @@ class _AdminServicesScreenState
         await _seedServicesData();
       }
 
-      // Load all services
-      final servicesSnap = await FirebaseFirestore.instance
-          .collection('services')
-          .orderBy('categoryId')
-          .orderBy('name')
-          .get();
-
-      _allServices = servicesSnap.docs.map((d) => {
-        'id':           d.id,
-        'name':         d.data()['name'] ?? '',
-        'categoryId':   d.data()['categoryId'] ?? '',
-        'categoryName': d.data()['categoryName'] ?? '',
-        'department':   d.data()['department'] ?? '',
-        'departmentId': d.data()['departmentId'] ??
-            _deptNameToId[d.data()['department']?.toString() ?? ''] ?? '',
-        'isActive':     d.data()['isActive'] ?? true,
-        'createdAt':    d.data()['createdAt'],
-      }).toList();
-
-      _applyFilters();
+      await _listenToServices();
     } catch (e) {
       debugPrint('Services error: $e');
+      if (mounted) setState(() => _loading = false);
     }
-    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _listenToServices() async {
+    await _servicesSub?.cancel();
+    Query<Map<String, dynamic>> query =
+        FirebaseFirestore.instance.collection('services');
+    final scopeCategoryId = _currentDepartmentCategoryId;
+    if (_role == 'admin' && scopeCategoryId != null) {
+      query = query.where('categoryId', isEqualTo: scopeCategoryId);
+    }
+
+    _servicesSub = query.snapshots().listen((servicesSnap) {
+      final scopedServices = servicesSnap.docs
+          .map(_serviceFromDoc)
+          .where(_serviceMatchesCurrentScope)
+          .toList()
+        ..sort((a, b) {
+          final aCat = a['categoryId'].toString();
+          final bCat = b['categoryId'].toString();
+          final catCompare = aCat.compareTo(bCat);
+          if (catCompare != 0) return catCompare;
+          return a['name'].toString().compareTo(b['name'].toString());
+        });
+      _allServices = scopedServices;
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _applyFilters();
+        });
+      }
+    }, onError: (e) {
+      debugPrint('Services stream error: $e');
+      if (mounted) setState(() => _loading = false);
+    });
+  }
+
+  Map<String, dynamic> _serviceFromDoc(
+      QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    final categoryId =
+        (data['categoryId']?.toString().trim().isNotEmpty == true)
+            ? data['categoryId'].toString()
+            : (_deptIdToCategory[data['departmentId']?.toString() ?? ''] ??
+                _categoryIdForDepartmentName(
+                    data['department']?.toString() ?? '') ??
+                '');
+    return {
+      'id': doc.id,
+      'name': data['name'] ?? '',
+      'categoryId': categoryId,
+      'categoryName': data['categoryName'] ?? '',
+      'department': data['department'] ?? '',
+      'departmentId': data['departmentId'] ??
+          _deptNameToId[data['department']?.toString() ?? ''] ??
+          '',
+      'isActive': data['isActive'] ?? true,
+      'createdAt': data['createdAt'],
+    };
   }
 
   // ── Seed Firestore with existing hardcoded services ────────────────────────
@@ -245,9 +304,7 @@ class _AdminServicesScreenState
     try {
       final batch = FirebaseFirestore.instance.batch();
       for (final service in _seedServices) {
-        final ref = FirebaseFirestore.instance
-            .collection('services')
-            .doc();
+        final ref = FirebaseFirestore.instance.collection('services').doc();
         final deptName = service['department']?.toString() ?? '';
         batch.set(ref, {
           ...service,
@@ -264,33 +321,111 @@ class _AdminServicesScreenState
   }
 
   void _applyFilters() {
-    var result = List<Map<String, dynamic>>.from(
-        _allServices);
-
-    if (_categoryFilter != 'all') {
-      result = result
-          .where((s) => s['categoryId'] == _categoryFilter)
-          .toList();
-    }
+    var result = List<Map<String, dynamic>>.from(_allServices);
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      result = result.where((s) =>
-          s['name'].toString().toLowerCase().contains(q) ||
-          s['department']
-              .toString()
-              .toLowerCase()
-              .contains(q) ||
-          s['categoryName']
-              .toString()
-              .toLowerCase()
-              .contains(q)).toList();
+      result = result
+          .where((s) =>
+              s['name'].toString().toLowerCase().contains(q) ||
+              s['department'].toString().toLowerCase().contains(q) ||
+              s['categoryName'].toString().toLowerCase().contains(q))
+          .toList();
     }
 
     setState(() => _filteredServices = result);
   }
 
+  bool _serviceMatchesCurrentScope(Map<String, dynamic> service) {
+    if (_role == 'superadmin') {
+      return true;
+    }
+
+    final scopeCategoryId = _currentDepartmentCategoryId;
+    final serviceCategoryId = _serviceCategoryId(service);
+    if (scopeCategoryId != null && serviceCategoryId != null) {
+      return serviceCategoryId == scopeCategoryId;
+    }
+
+    final serviceDepartmentId =
+        service['departmentId']?.toString().trim() ?? '';
+    if (_staffDepartmentId.isNotEmpty && serviceDepartmentId.isNotEmpty) {
+      return serviceDepartmentId == _staffDepartmentId;
+    }
+
+    final serviceDepartment =
+        _normalizeDepartment(service['department']?.toString() ?? '');
+    return serviceDepartment == _normalizeDepartment(_staffDepartment);
+  }
+
+  String? _serviceCategoryId(Map<String, dynamic> service) {
+    final direct = service['categoryId']?.toString().trim() ?? '';
+    if (direct.isNotEmpty) {
+      return direct;
+    }
+
+    final departmentId = service['departmentId']?.toString().trim() ?? '';
+    if (departmentId.isNotEmpty &&
+        _deptIdToCategory[departmentId]?.isNotEmpty == true) {
+      return _deptIdToCategory[departmentId];
+    }
+
+    return _categoryIdForDepartmentName(
+        service['department']?.toString() ?? '');
+  }
+
+  String? _categoryIdForDepartmentName(String department) {
+    final normalized = _normalizeDepartment(department);
+    const aliases = <String, String>{
+      'city administration office': 'mayor',
+      'mayor': 'mayor',
+      'mayor\'s office': 'mayor',
+      'city mayor\'s office': 'mayor',
+      'civil registry': 'civil',
+      'office of the city civil registrar': 'civil',
+      'city civil registrar': 'civil',
+      'community affairs': 'community',
+      'office of the city community affairs': 'community',
+      'city community affairs': 'community',
+    };
+
+    return aliases[normalized];
+  }
+
+  String? get _currentDepartmentCategoryId {
+    if (_role != 'admin' || _staffDepartment.isEmpty) {
+      return null;
+    }
+
+    if (_staffDepartmentId.isNotEmpty &&
+        _deptIdToCategory[_staffDepartmentId]?.isNotEmpty == true) {
+      return _deptIdToCategory[_staffDepartmentId];
+    }
+
+    return _categoryIdForDepartmentName(_staffDepartment);
+  }
+
+  String _departmentNameForCategoryId(String categoryId) {
+    switch (categoryId) {
+      case 'mayor':
+        return 'City Administration Office';
+      case 'civil':
+        return 'Office of the City Civil Registrar';
+      case 'community':
+        return 'Office of the City Community Affairs';
+      default:
+        return _staffDepartment;
+    }
+  }
+
+  String _normalizeDepartment(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
   bool get _isSuperAdmin => _role == 'superadmin';
+  bool get _canManageServices =>
+      _role == 'superadmin' ||
+      (_role == 'admin' && _staffDepartment.isNotEmpty);
 
   @override
   Widget build(BuildContext context) {
@@ -299,14 +434,12 @@ class _AdminServicesScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(
-                color: AppColors.primary),
+            const CircularProgressIndicator(color: AppColors.primary),
             if (_seeding) ...[
               const SizedBox(height: 16),
               Text(
                 'Setting up services for the first time...',
-                style: GoogleFonts.inter(
-                    fontSize: 13, color: AppColors.muted),
+                style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted),
               ),
             ],
           ],
@@ -348,20 +481,19 @@ class _AdminServicesScreenState
               const SizedBox(height: 4),
               Text(
                 '${_filteredServices.length} service${_filteredServices.length != 1 ? 's' : ''} · '
-                '${_isSuperAdmin ? 'You can add, edit and remove services' : 'View only'}',
-                style: GoogleFonts.inter(
-                    fontSize: 13, color: AppColors.muted),
+                '${_canManageServices ? (_role == 'superadmin' ? 'You can add, edit and remove services' : 'You can activate or deactivate services for your department') : 'View only'}',
+                style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted),
               ),
             ],
           ),
         ),
         Container(
-          width: 40, height: 40,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: const Color(0xFFEEEEEE)),
+            border: Border.all(color: const Color(0xFFEEEEEE)),
           ),
           child: IconButton(
             icon: const Icon(Icons.refresh_rounded,
@@ -369,7 +501,7 @@ class _AdminServicesScreenState
             onPressed: _loadData,
           ),
         ),
-        if (_isSuperAdmin) ...[
+        if (_canManageServices) ...[
           const SizedBox(width: 10),
           ElevatedButton.icon(
             onPressed: () => _showServiceDialog(),
@@ -383,8 +515,7 @@ class _AdminServicesScreenState
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 18, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
             ),
@@ -411,7 +542,6 @@ class _AdminServicesScreenState
       child: Row(
         children: [
           Expanded(
-            flex: 3,
             child: SizedBox(
               height: 40,
               child: TextField(
@@ -423,15 +553,14 @@ class _AdminServicesScreenState
                 style: GoogleFonts.inter(fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Search services or department...',
-                  hintStyle: GoogleFonts.inter(
-                      color: AppColors.muted, fontSize: 12),
+                  hintStyle:
+                      GoogleFonts.inter(color: AppColors.muted, fontSize: 12),
                   prefixIcon: const Icon(Icons.search,
                       size: 16, color: AppColors.muted),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear,
-                              size: 14,
-                              color: AppColors.muted),
+                              size: 14, color: AppColors.muted),
                           onPressed: () {
                             _searchController.clear();
                             _searchQuery = '';
@@ -441,48 +570,22 @@ class _AdminServicesScreenState
                       : null,
                   filled: true,
                   fillColor: const Color(0xFFF7F8FC),
-                  contentPadding:
-                      const EdgeInsets.symmetric(
-                          horizontal: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   border: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                        color: Color(0xFFEEEEEE)),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFEEEEEE)),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                        color: Color(0xFFEEEEEE)),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFEEEEEE)),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                        color: AppColors.primary,
-                        width: 1.5),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide:
+                        const BorderSide(color: AppColors.primary, width: 1.5),
                   ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Category filter
-          Expanded(
-            flex: 2,
-            child: _buildDropdown(
-              value: _categoryFilter,
-              items: {
-                'all':       'All Categories',
-                'mayor':     "City Administration Office",
-                'civil':     'Civil Registry',
-                'community': 'Community Affairs',
-              },
-              onChanged: (v) {
-                _categoryFilter = v!;
-                _applyFilters();
-              },
             ),
           ),
         ],
@@ -490,45 +593,9 @@ class _AdminServicesScreenState
     );
   }
 
-  Widget _buildDropdown({
-    required String value,
-    required Map<String, String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F8FC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 16,
-              color: AppColors.muted),
-          style: GoogleFonts.inter(
-              fontSize: 12,
-              color: const Color(0xFF333333),
-              fontWeight: FontWeight.w500),
-          items: items.entries
-              .map((e) => DropdownMenuItem(
-                  value: e.key, child: Text(e.value)))
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-
   Widget _buildStatsRow() {
-    final total    = _allServices.length;
-    final active   = _allServices
-        .where((s) => s['isActive'] == true).length;
+    final total = _allServices.length;
+    final active = _allServices.where((s) => s['isActive'] == true).length;
     final byCategory = <String, int>{};
     for (final s in _allServices) {
       final c = s['categoryId'] as String;
@@ -537,29 +604,28 @@ class _AdminServicesScreenState
 
     return Row(
       children: [
-        _statCard('Total Services', total,
-            Icons.design_services_rounded,
-            const Color(0xFF5C6BC0),
-            const Color(0xFFEDE7F6)),
+        _statCard('Total Services', total, Icons.design_services_rounded,
+            const Color(0xFF5C6BC0), const Color(0xFFEDE7F6)),
         const SizedBox(width: 16),
-        _statCard('Active', active,
-            Icons.check_circle_rounded,
-            const Color(0xFF10B981),
-            const Color(0xFFECFDF5)),
+        _statCard('Active', active, Icons.check_circle_rounded,
+            const Color(0xFF10B981), const Color(0xFFECFDF5)),
         const SizedBox(width: 16),
-        _statCard("Mayor's Office",
+        _statCard(
+            "Mayor's Office",
             byCategory['mayor'] ?? 0,
             Icons.account_balance_rounded,
             const Color(0xFF5B6AF0),
             const Color(0xFFEEF0FD)),
         const SizedBox(width: 16),
-        _statCard('Civil Registry',
+        _statCard(
+            'Civil Registry',
             byCategory['civil'] ?? 0,
             Icons.description_rounded,
             const Color(0xFF00A86B),
             const Color(0xFFE6F7F1)),
         const SizedBox(width: 16),
-        _statCard('Community Affairs',
+        _statCard(
+            'Community Affairs',
             byCategory['community'] ?? 0,
             Icons.people_rounded,
             const Color(0xFFFF8000),
@@ -568,8 +634,8 @@ class _AdminServicesScreenState
     );
   }
 
-  Widget _statCard(String label, int value,
-      IconData icon, Color color, Color bg) {
+  Widget _statCard(
+      String label, int value, IconData icon, Color color, Color bg) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -587,17 +653,16 @@ class _AdminServicesScreenState
         child: Row(
           children: [
             Container(
-              width: 36, height: 36,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(9)),
+                  color: bg, borderRadius: BorderRadius.circular(9)),
               child: Icon(icon, color: color, size: 18),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('$value',
                       style: GoogleFonts.inter(
@@ -638,40 +703,34 @@ class _AdminServicesScreenState
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 20, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             decoration: const BoxDecoration(
               color: Color(0xFFF7F8FC),
               borderRadius: BorderRadius.only(
-                topLeft:  Radius.circular(16),
+                topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
               ),
             ),
             child: Row(
               children: [
                 _hCell('Service Name', flex: 4),
-                _hCell('Category',     flex: 2),
-                _hCell('Department',   flex: 3),
-                _hCell('Status',       flex: 1),
-                if (_isSuperAdmin)
-                  _hCell('Actions', flex: 2,
-                      align: TextAlign.center),
+                _hCell('Category', flex: 2),
+                _hCell('Department', flex: 3),
+                _hCell('Status', flex: 1),
+                if (_canManageServices)
+                  _hCell('Actions', flex: 2, align: TextAlign.center),
               ],
             ),
           ),
-          const Divider(
-              height: 1, color: Color(0xFFF0F0F0)),
+          const Divider(height: 1, color: Color(0xFFF0F0F0)),
           Expanded(
             child: _filteredServices.isEmpty
                 ? _buildEmpty()
                 : ListView.separated(
                     itemCount: _filteredServices.length,
                     separatorBuilder: (_, __) =>
-                        const Divider(
-                            height: 1,
-                            color: Color(0xFFF5F5F5)),
-                    itemBuilder: (_, i) =>
-                        _buildRow(_filteredServices[i]),
+                        const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                    itemBuilder: (_, i) => _buildRow(_filteredServices[i]),
                   ),
           ),
         ],
@@ -695,18 +754,18 @@ class _AdminServicesScreenState
   }
 
   Widget _buildRow(Map<String, dynamic> s) {
-    final catId    = s['categoryId'] as String;
-    final catConf  = _categoryConfig[catId] ?? {
-      'color': AppColors.muted,
-      'bg':    const Color(0xFFF5F5F5),
-      'label': catId,
-      'icon':  Icons.folder_rounded,
-    };
+    final catId = s['categoryId'] as String;
+    final catConf = _categoryConfig[catId] ??
+        {
+          'color': AppColors.muted,
+          'bg': const Color(0xFFF5F5F5),
+          'label': catId,
+          'icon': Icons.folder_rounded,
+        };
     final isActive = s['isActive'] as bool? ?? true;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
           Expanded(
@@ -714,11 +773,11 @@ class _AdminServicesScreenState
             child: Row(
               children: [
                 Container(
-                  width: 36, height: 36,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     color: (catConf['bg'] as Color),
-                    borderRadius:
-                        BorderRadius.circular(9),
+                    borderRadius: BorderRadius.circular(9),
                   ),
                   child: Icon(
                     catConf['icon'] as IconData,
@@ -744,8 +803,7 @@ class _AdminServicesScreenState
           Expanded(
             flex: 2,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: (catConf['bg'] as Color),
                 borderRadius: BorderRadius.circular(20),
@@ -768,21 +826,17 @@ class _AdminServicesScreenState
               s['department'] as String,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: const Color(0xFF555555)),
+                  fontSize: 12, color: const Color(0xFF555555)),
             ),
           ),
           Expanded(
             flex: 1,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: isActive
-                    ? const Color(0xFF10B981)
-                        .withValues(alpha: 0.10)
-                    : const Color(0xFFEF4444)
-                        .withValues(alpha: 0.10),
+                    ? const Color(0xFF10B981).withValues(alpha: 0.10)
+                    : const Color(0xFFEF4444).withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -798,12 +852,11 @@ class _AdminServicesScreenState
               ),
             ),
           ),
-          if (_isSuperAdmin)
+          if (_canManageServices)
             Expanded(
               flex: 2,
               child: Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _actionBtn(
                     icon: Icons.edit_rounded,
@@ -812,29 +865,26 @@ class _AdminServicesScreenState
                     onTap: () => _showServiceDialog(service: s),
                   ),
                   const SizedBox(width: 6),
-                  _actionBtn(
-                    icon: isActive
-                        ? Icons.visibility_off_rounded
-                        : Icons.visibility_rounded,
-                    color: isActive
-                        ? const Color(0xFFF59E0B)
-                        : const Color(0xFF10B981),
-                    tooltip: isActive
-                        ? 'Deactivate'
-                        : 'Activate',
-                    onTap: () => _toggleActive(
-                        s['id'] as String,
-                        isActive),
-                  ),
-                  const SizedBox(width: 6),
-                  _actionBtn(
-                    icon: Icons.delete_rounded,
-                    color: const Color(0xFFEF4444),
-                    tooltip: 'Delete',
-                    onTap: () => _confirmDelete(
-                        s['id'] as String,
-                        s['name'] as String),
-                  ),
+                  if (_canManageServices)
+                    _actionBtn(
+                      icon: isActive
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                      color: isActive
+                          ? const Color(0xFFF59E0B)
+                          : const Color(0xFF10B981),
+                      tooltip: isActive ? 'Deactivate' : 'Activate',
+                      onTap: () => _toggleActive(s['id'] as String, isActive),
+                    ),
+                  if (_isSuperAdmin) const SizedBox(width: 6),
+                  if (_isSuperAdmin)
+                    _actionBtn(
+                      icon: Icons.delete_rounded,
+                      color: const Color(0xFFEF4444),
+                      tooltip: 'Delete',
+                      onTap: () => _confirmDelete(
+                          s['id'] as String, s['name'] as String),
+                    ),
                 ],
               ),
             ),
@@ -855,7 +905,8 @@ class _AdminServicesScreenState
         onTap: onTap,
         borderRadius: BorderRadius.circular(6),
         child: Container(
-          width: 28, height: 28,
+          width: 28,
+          height: 28,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(6),
@@ -872,9 +923,7 @@ class _AdminServicesScreenState
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.design_services_outlined,
-              size: 48,
-              color: AppColors.muted
-                  .withValues(alpha: 0.3)),
+              size: 48, color: AppColors.muted.withValues(alpha: 0.3)),
           const SizedBox(height: 12),
           Text('No services found',
               style: GoogleFonts.inter(
@@ -887,8 +936,7 @@ class _AdminServicesScreenState
             _searchQuery.isNotEmpty
                 ? 'Try a different search term'
                 : 'Add your first service using the button above',
-            style: GoogleFonts.inter(
-                fontSize: 12, color: AppColors.muted),
+            style: GoogleFonts.inter(fontSize: 12, color: AppColors.muted),
           ),
         ],
       ),
@@ -897,31 +945,48 @@ class _AdminServicesScreenState
 
   // ── Add / Edit service dialog ──────────────────────────────────────────────
   void _showServiceDialog({Map<String, dynamic>? service}) {
-    final isEdit    = service != null;
-    final nameCtrl  = TextEditingController(
-        text: isEdit ? service['name'] as String : '');
-    String selectedCat =
-        isEdit ? (service['categoryId'] as String) : 'mayor';
+    final isEdit = service != null;
+    final nameCtrl =
+        TextEditingController(text: isEdit ? service['name'] as String : '');
+    String selectedCat = _role == 'admin'
+        ? (_currentDepartmentCategoryId ?? 'mayor')
+        : (isEdit ? (service['categoryId'] as String) : 'mayor');
     final formKey = GlobalKey<FormState>();
 
-    final categoryOptions = {
-      'mayor':     "City Administration Office",
-      'civil':     'Civil Registry',
-      'community': 'Community Affairs',
-    };
+    // For staff users, limit category options to their department
+    late Map<String, String> categoryOptions;
+    late Map<String, String> deptForCat;
 
-    final deptForCat = {
-      'mayor':     'City Administration Office',
-      'civil':     'Office of the City Civil Registrar',
-      'community': 'Office of the City Community Affairs',
-    };
+    if (_role == 'admin' && _staffDepartment.isNotEmpty) {
+      // Staff can only add services to their department
+      final catId = _currentDepartmentCategoryId ?? 'mayor';
+      categoryOptions = {
+        catId: _categoryConfig[catId]?['label'] as String? ?? catId,
+      };
+      deptForCat = {
+        catId: _departmentNameForCategoryId(catId),
+      };
+      selectedCat = catId;
+    } else {
+      // Superadmin can add to any category/department
+      categoryOptions = {
+        'mayor': "City Administration Office",
+        'civil': 'Civil Registry',
+        'community': 'Community Affairs',
+      };
+      deptForCat = {
+        'mayor': 'City Administration Office',
+        'civil': 'Office of the City Civil Registrar',
+        'community': 'Office of the City Community Affairs',
+      };
+    }
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setInner) => Dialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Container(
             width: 480,
             padding: const EdgeInsets.all(28),
@@ -929,29 +994,23 @@ class _AdminServicesScreenState
               key: formKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
                     Container(
-                      width: 40, height: 40,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.primary
-                            .withValues(alpha: 0.10),
-                        borderRadius:
-                            BorderRadius.circular(10),
+                        color: AppColors.primary.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
-                          Icons.design_services_rounded,
-                          color: AppColors.primary,
-                          size: 20),
+                      child: const Icon(Icons.design_services_rounded,
+                          color: AppColors.primary, size: 20),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        isEdit
-                            ? 'Edit Service'
-                            : 'Add Service',
+                        isEdit ? 'Edit Service' : 'Add Service',
                         style: GoogleFonts.inter(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -960,11 +1019,9 @@ class _AdminServicesScreenState
                       ),
                     ),
                     IconButton(
-                      onPressed: () =>
-                          Navigator.pop(ctx),
+                      onPressed: () => Navigator.pop(ctx),
                       icon: const Icon(Icons.close,
-                          size: 18,
-                          color: AppColors.muted),
+                          size: 18, color: AppColors.muted),
                     ),
                   ]),
                   const SizedBox(height: 24),
@@ -976,11 +1033,8 @@ class _AdminServicesScreenState
                     controller: nameCtrl,
                     style: GoogleFonts.inter(fontSize: 13),
                     validator: (v) =>
-                        v == null || v.isEmpty
-                            ? 'Name is required'
-                            : null,
-                    decoration: _inputDeco(
-                        'e.g. Issuance of Certified Copy'),
+                        v == null || v.isEmpty ? 'Name is required' : null,
+                    decoration: _inputDeco('e.g. Issuance of Certified Copy'),
                   ),
                   const SizedBox(height: 16),
 
@@ -988,41 +1042,28 @@ class _AdminServicesScreenState
                   _fieldLabel('Category / Department'),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF7F8FC),
-                      borderRadius:
-                          BorderRadius.circular(10),
-                      border: Border.all(
-                          color:
-                              const Color(0xFFEEEEEE)),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFEEEEEE)),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: selectedCat,
                         isExpanded: true,
-                        icon: const Icon(
-                            Icons
-                                .keyboard_arrow_down_rounded,
-                            size: 16,
-                            color: AppColors.muted),
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                            size: 16, color: AppColors.muted),
                         style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: const Color(0xFF333333)),
+                            fontSize: 13, color: const Color(0xFF333333)),
                         items: categoryOptions.entries
-                            .map((e) =>
-                                DropdownMenuItem<String>(
+                            .map((e) => DropdownMenuItem<String>(
                                   value: e.key,
                                   child: Text(e.value,
-                                      style: GoogleFonts
-                                          .inter(
-                                              fontSize:
-                                                  13)),
+                                      style: GoogleFonts.inter(fontSize: 13)),
                                 ))
                             .toList(),
-                        onChanged: (v) => setInner(
-                            () => selectedCat = v!),
+                        onChanged: (v) => setInner(() => selectedCat = v!),
                       ),
                     ),
                   ),
@@ -1030,19 +1071,14 @@ class _AdminServicesScreenState
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.primary
-                          .withValues(alpha: 0.05),
-                      borderRadius:
-                          BorderRadius.circular(8),
+                      color: AppColors.primary.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                          color: AppColors.primary
-                              .withValues(alpha: 0.12)),
+                          color: AppColors.primary.withValues(alpha: 0.12)),
                     ),
                     child: Row(children: [
-                      const Icon(
-                          Icons.info_outline_rounded,
-                          color: AppColors.primary,
-                          size: 13),
+                      const Icon(Icons.info_outline_rounded,
+                          color: AppColors.primary, size: 13),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -1059,23 +1095,16 @@ class _AdminServicesScreenState
                   const SizedBox(height: 28),
 
                   Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton(
-                        onPressed: () =>
-                            Navigator.pop(ctx),
+                        onPressed: () => Navigator.pop(ctx),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                              color: Color(0xFFEEEEEE)),
+                          side: const BorderSide(color: Color(0xFFEEEEEE)),
                           shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(
-                                      10)),
-                          padding:
-                              const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12),
+                              borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
                         ),
                         child: Text('Cancel',
                             style: GoogleFonts.inter(
@@ -1085,54 +1114,48 @@ class _AdminServicesScreenState
                             )),
                       ),
                       const SizedBox(width: 10),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          if (!formKey.currentState!
-                              .validate()) {
-                            return;
-                          }
-                          Navigator.pop(ctx);
-                          if (isEdit) {
-                            await _updateService(
-                              service['id'] as String,
-                              nameCtrl.text.trim(),
-                              selectedCat,
-                              deptForCat[selectedCat]!,
-                            );
-                          } else {
-                            await _addService(
-                              nameCtrl.text.trim(),
-                              selectedCat,
-                              deptForCat[selectedCat]!,
-                            );
-                          }
-                        },
-                        icon: Icon(
-                            isEdit
-                                ? Icons.save_rounded
-                                : Icons.add_rounded,
-                            size: 16),
-                        label: Text(
-                            isEdit ? 'Save' : 'Add',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            )),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(
-                                      10)),
-                          padding:
-                              const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12),
+                      if (_isSuperAdmin) ...[
+                        const SizedBox(width: 10),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            if (!formKey.currentState!.validate()) {
+                              return;
+                            }
+                            Navigator.pop(ctx);
+                            if (isEdit) {
+                              await _updateService(
+                                service['id'] as String,
+                                nameCtrl.text.trim(),
+                                selectedCat,
+                                deptForCat[selectedCat]!,
+                              );
+                            } else {
+                              await _addService(
+                                nameCtrl.text.trim(),
+                                selectedCat,
+                                deptForCat[selectedCat]!,
+                              );
+                            }
+                          },
+                          icon: Icon(
+                              isEdit ? Icons.save_rounded : Icons.add_rounded,
+                              size: 16),
+                          label: Text(isEdit ? 'Save' : 'Add',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              )),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 12),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ],
@@ -1145,25 +1168,22 @@ class _AdminServicesScreenState
   }
 
   // ── Firestore actions ──────────────────────────────────────────────────────
-  Future<void> _addService(
-      String name, String catId, String dept) async {
+  Future<void> _addService(String name, String catId, String dept) async {
     try {
       final catConf = _categoryConfig[catId];
-      final docRef = FirebaseFirestore.instance
-          .collection('services')
-          .doc();
+      final docRef = FirebaseFirestore.instance.collection('services').doc();
       await FirebaseFirestore.instance
           .collection('services')
           .doc(docRef.id)
           .set({
-        'name':         name,
-        'categoryId':   catId,
+        'name': name,
+        'categoryId': catId,
         'categoryName': catConf?['label'] ?? catId,
-        'department':   dept,
+        'department': dept,
         'departmentId': _deptNameToId[dept] ?? '',
-        'isActive':     true,
-        'createdAt':    FieldValue.serverTimestamp(),
-        'updatedAt':    FieldValue.serverTimestamp(),
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
       if (mounted) {
         _allServices.insert(0, {
@@ -1186,20 +1206,17 @@ class _AdminServicesScreenState
     }
   }
 
-  Future<void> _updateService(String id, String name,
-      String catId, String dept) async {
+  Future<void> _updateService(
+      String id, String name, String catId, String dept) async {
     try {
       final catConf = _categoryConfig[catId];
-      await FirebaseFirestore.instance
-          .collection('services')
-          .doc(id)
-          .update({
-        'name':         name,
-        'categoryId':   catId,
+      await FirebaseFirestore.instance.collection('services').doc(id).update({
+        'name': name,
+        'categoryId': catId,
         'categoryName': catConf?['label'] ?? catId,
-        'department':   dept,
+        'department': dept,
         'departmentId': _deptNameToId[dept] ?? '',
-        'updatedAt':    FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
       if (mounted) {
         _patchServiceLocal(id, {
@@ -1209,8 +1226,7 @@ class _AdminServicesScreenState
           'department': dept,
           'departmentId': _deptNameToId[dept] ?? '',
         });
-        _showSnack(
-            'Service updated ✓', AppColors.success);
+        _showSnack('Service updated ✓', AppColors.success);
       }
     } catch (e) {
       if (mounted) {
@@ -1219,23 +1235,17 @@ class _AdminServicesScreenState
     }
   }
 
-  Future<void> _toggleActive(
-      String id, bool current) async {
+  Future<void> _toggleActive(String id, bool current) async {
     try {
       final next = !current;
-      await FirebaseFirestore.instance
-          .collection('services')
-          .doc(id)
-          .update({
-        'isActive':  next,
+      await FirebaseFirestore.instance.collection('services').doc(id).update({
+        'isActive': next,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       if (mounted) {
         _patchServiceLocal(id, {'isActive': next});
         _showSnack(
-          current
-              ? 'Service deactivated'
-              : 'Service activated ✓',
+          current ? 'Service deactivated' : 'Service activated ✓',
           current ? AppColors.warning : AppColors.success,
         );
       }
@@ -1250,14 +1260,13 @@ class _AdminServicesScreenState
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(children: [
           Container(
-            width: 36, height: 36,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFFEF4444)
-                  .withValues(alpha: 0.10),
+              color: const Color(0xFFEF4444).withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.warning_rounded,
@@ -1265,22 +1274,19 @@ class _AdminServicesScreenState
           ),
           const SizedBox(width: 12),
           Text('Delete Service',
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16)),
+              style:
+                  GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
         ]),
         content: Text(
           'Delete "$name"? This will also remove it from '
           'the citizen mobile app. This action cannot be undone.',
-          style: GoogleFonts.inter(
-              fontSize: 13, color: AppColors.muted),
+          style: GoogleFonts.inter(fontSize: 13, color: AppColors.muted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text('Cancel',
-                style: GoogleFonts.inter(
-                    color: AppColors.muted)),
+                style: GoogleFonts.inter(color: AppColors.muted)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -1306,10 +1312,7 @@ class _AdminServicesScreenState
 
   Future<void> _deleteService(String id) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('services')
-          .doc(id)
-          .delete();
+      await FirebaseFirestore.instance.collection('services').doc(id).delete();
       if (mounted) {
         _allServices.removeWhere((s) => s['id'] == id);
         _applyFilters();
@@ -1341,34 +1344,28 @@ class _AdminServicesScreenState
         color: const Color(0xFF333333),
       ));
 
-  InputDecoration _inputDeco(String hint) =>
-      InputDecoration(
+  InputDecoration _inputDeco(String hint) => InputDecoration(
         hintText: hint,
-        hintStyle: GoogleFonts.inter(
-            color: AppColors.muted, fontSize: 12),
+        hintStyle: GoogleFonts.inter(color: AppColors.muted, fontSize: 12),
         filled: true,
         fillColor: const Color(0xFFF7F8FC),
-        contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide:
-              const BorderSide(color: Color(0xFFEEEEEE)),
+          borderSide: const BorderSide(color: Color(0xFFEEEEEE)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide:
-              const BorderSide(color: Color(0xFFEEEEEE)),
+          borderSide: const BorderSide(color: Color(0xFFEEEEEE)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(
-              color: AppColors.primary, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide:
-              const BorderSide(color: Color(0xFFEF4444)),
+          borderSide: const BorderSide(color: Color(0xFFEF4444)),
         ),
       );
 
@@ -1377,12 +1374,10 @@ class _AdminServicesScreenState
       SnackBar(
         content: Text(msg,
             style: GoogleFonts.inter(
-                color: Colors.white,
-                fontWeight: FontWeight.w600)),
+                color: Colors.white, fontWeight: FontWeight.w600)),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.all(16),
       ),
     );

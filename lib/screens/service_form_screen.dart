@@ -223,7 +223,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
       );
       if (result != null &&
           result.files.single.path != null) {
@@ -753,7 +753,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                     ),
                   ] else if (!isUploading) ...[
                     const SizedBox(height: 3),
-                    Text('PDF, JPG or PNG — tap to upload',
+                    Text('PDF, JPG, PNG, DOC, or DOCX — tap to upload',
                         style: AppTextStyles.small),
                   ],
                 ],

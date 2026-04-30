@@ -1,8 +1,16 @@
+
+import 'dart:io' as io;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:flutter/foundation.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 import '../../theme/app_theme.dart';
 
 class AdminReportsScreen extends StatefulWidget {
@@ -13,34 +21,161 @@ class AdminReportsScreen extends StatefulWidget {
 }
 
 class _AdminReportsScreenState extends State<AdminReportsScreen> {
+  // ── Export Report as PDF ───────────────────────────────────────
+  Future<void> _exportReportAsPdf() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(child: CircularProgressIndicator()),
+      );
+      final pdf = pw.Document();
+      final now = DateTime.now();
+      // Add summary section
+      pdf.addPage(
+        pw.MultiPage(
+          build: (context) => [
+            pw.Text('Serbisyo Alisto Report', style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 8),
+            pw.Text('Generated: ${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}/${now.year}'),
+            pw.SizedBox(height: 16),
+            pw.Text('Summary', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            pw.Table(
+              border: pw.TableBorder.all(width: 0.5),
+              children: [
+                pw.TableRow(children: [
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Total Requests', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(_total.toString())),
+                ]),
+                pw.TableRow(children: [
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Completed', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(_completed.toString())),
+                ]),
+                pw.TableRow(children: [
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Pending', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(_pending.toString())),
+                ]),
+                pw.TableRow(children: [
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Processing', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(_processing.toString())),
+                ]),
+                pw.TableRow(children: [
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Rejected', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(_rejected.toString())),
+                ]),
+                pw.TableRow(children: [
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Completion Rate', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                  pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(_total == 0 ? '0%' : '${((_completed / _total) * 100).toStringAsFixed(1)}%')),
+                ]),
+              ],
+            ),
+            pw.SizedBox(height: 20),
+            pw.Text('Top Services', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            _topServices.isEmpty
+                ? pw.Text('No data')
+                : pw.Table(
+                    border: pw.TableBorder.all(width: 0.5),
+                    children: [
+                      pw.TableRow(
+                        children: [
+                          pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Service', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                          pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Requests', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                        ],
+                      ),
+                      ..._topServices.map((s) => pw.TableRow(children: [
+                        pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(s['name'] ?? '')),
+                        pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(s['count'].toString())),
+                      ])),
+                    ],
+                  ),
+            pw.SizedBox(height: 20),
+            pw.Text('Staff Performance', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            _staffPerf.isEmpty
+                ? pw.Text('No data')
+                : pw.Table(
+                    border: pw.TableBorder.all(width: 0.5),
+                    children: [
+                      pw.TableRow(children: [
+                        pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Staff', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                        pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Completed', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                        pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Total', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                        pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('Rate', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      ]),
+                      ..._staffPerf.map((s) => pw.TableRow(children: [
+                        pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(s['name'] ?? '')),
+                        pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(s['completed'].toString())),
+                        pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text(s['total'].toString())),
+                        pw.Padding(padding: pw.EdgeInsets.all(4), child: pw.Text('${((s['rate'] as double) * 100).toStringAsFixed(1)}%')),
+                      ])),
+                    ],
+                  ),
+          ],
+        ),
+      );
+      final pdfBytes = await pdf.save();
+
+      if (kIsWeb) {
+        // Web: trigger download
+        // ignore: undefined_prefixed_name, avoid_web_libraries_in_flutter
+        final blob = html.Blob([pdfBytes], 'application/pdf');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: url)
+          ..setAttribute('download', 'serbisyo_alisto_report_${now.millisecondsSinceEpoch}.pdf')
+          ..click();
+        html.Url.revokeObjectUrl(url);
+        if (mounted) Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PDF downloaded!')),
+        );
+      } else {
+        // Mobile/Desktop: save to temp and open
+        final output = await getTemporaryDirectory();
+        final file = io.File('${output.path}/serbisyo_alisto_report_${now.millisecondsSinceEpoch}.pdf');
+        await file.writeAsBytes(pdfBytes);
+        if (mounted) Navigator.of(context).pop();
+        await OpenFile.open(file.path);
+      }
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to export PDF: $e')),
+      );
+    }
+  }
+// ...existing code...
   // ── Filters ─────────────────────────────────────────────────────
-  String _preset      = '30D';
+  String _preset = '30D';
   String _granularity = 'Daily';
   DateTimeRange? _customRange;
   int _touchedPieIndex = -1;
+  int? _selectedYear;
 
   DateTime get _fromDate {
     if (_customRange != null) return _customRange!.start;
     final now = DateTime.now();
     switch (_preset) {
-      case '7D':  return now.subtract(const Duration(days: 7));
-      case '3M':  return now.subtract(const Duration(days: 90));
-      case 'All': return DateTime(2020);
-      default:    return now.subtract(const Duration(days: 30));
+      case '7D':
+        return now.subtract(const Duration(days: 7));
+      case '3M':
+        return now.subtract(const Duration(days: 90));
+      case 'All':
+        return DateTime(2020);
+      default:
+        return now.subtract(const Duration(days: 30));
     }
   }
 
   // ── Data ────────────────────────────────────────────────────────
-  bool   _loading     = true;
-  int    _total       = 0;
-  int    _completed   = 0;
-  int    _pending     = 0;
-  int    _processing  = 0;
-  int    _rejected    = 0;
+  bool _loading = true;
+  int _total = 0;
+  int _completed = 0;
+  int _pending = 0;
+  int _processing = 0;
+  int _rejected = 0;
 
-  List<Map<String, dynamic>> _timeSeries  = [];
+  List<Map<String, dynamic>> _timeSeries = [];
   List<Map<String, dynamic>> _topServices = [];
-  List<Map<String, dynamic>> _staffPerf   = [];
+  List<Map<String, dynamic>> _staffPerf = [];
 
   @override
   void initState() {
@@ -58,18 +193,21 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           .get();
 
       final docs = snap.docs;
-      int total = docs.length, completed = 0, pending = 0,
-          processing = 0, rejected = 0;
+      int total = docs.length,
+          completed = 0,
+          pending = 0,
+          processing = 0,
+          rejected = 0;
 
-      final Map<String, int>              buckets      = {};
-      final Map<String, int>              serviceCount = {};
-      final Map<String, Map<String, int>> staffMap     = {};
+      final Map<String, int> buckets = {};
+      final Map<String, int> serviceCount = {};
+      final Map<String, Map<String, int>> staffMap = {};
 
       for (final doc in docs) {
-        final data   = doc.data();
+        final data = doc.data();
         final status = (data['status'] ?? '').toString().toLowerCase();
 
-        if (status == 'completed')  completed++;
+        if (status == 'completed') completed++;
         if (status == 'submitted' ||
             status == 'pending' ||
             status == 'pending_review') {
@@ -98,7 +236,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         final staff = (data['assignedTo'] ?? '').toString();
         if (staff.isNotEmpty) {
           staffMap[staff] ??= {'total': 0, 'completed': 0};
-          staffMap[staff]!['total']     = staffMap[staff]!['total']!     + 1;
+          staffMap[staff]!['total'] = staffMap[staff]!['total']! + 1;
           if (status == 'completed') {
             staffMap[staff]!['completed'] = staffMap[staff]!['completed']! + 1;
           }
@@ -120,22 +258,21 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         final t = e.value['total']!;
         final c = e.value['completed']!;
         return {
-          'name':      e.key,
-          'total':     t,
+          'name': e.key,
+          'total': t,
           'completed': c,
-          'rate':      t == 0 ? 0.0 : c / t,
+          'rate': t == 0 ? 0.0 : c / t,
         };
       }).toList()
-        ..sort((a, b) =>
-            (b['rate'] as double).compareTo(a['rate'] as double));
+        ..sort((a, b) => (b['rate'] as double).compareTo(a['rate'] as double));
 
       if (mounted) {
         setState(() {
-          _total      = total;
-          _completed  = completed;
-          _pending    = pending;
+          _total = total;
+          _completed = completed;
+          _pending = pending;
           _processing = processing;
-          _rejected   = rejected;
+          _rejected = rejected;
           _timeSeries = sortedBuckets
               .map((e) => {
                     'label': e.key,
@@ -146,13 +283,13 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           _topServices = sortedServices
               .take(6)
               .map((e) => {
-                    'name':  e.key,
+                    'name': e.key,
                     'count': e.value,
                     'ratio': maxService == 0 ? 0.0 : e.value / maxService,
                   })
               .toList();
           _staffPerf = staffList.take(8).toList();
-          _loading   = false;
+          _loading = false;
         });
       }
     } catch (_) {
@@ -219,15 +356,14 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.barChart2,
-              color: AppColors.primary, size: 22),
+          const Icon(LucideIcons.barChart2, color: AppColors.primary, size: 22),
           const SizedBox(width: 10),
           Text('Reports & Analytics',
               style: GoogleFonts.inter(
@@ -235,6 +371,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF1A1A2E))),
           const Spacer(),
+          IconButton(
+            tooltip: 'Export as PDF',
+            icon: const Icon(LucideIcons.download, color: AppColors.primary),
+            onPressed: _exportReportAsPdf,
+          ),
           OutlinedButton.icon(
             onPressed: _loadData,
             icon: const Icon(LucideIcons.refreshCw, size: 14),
@@ -242,8 +383,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.primary,
               side: const BorderSide(color: AppColors.primary),
-              textStyle: GoogleFonts.inter(
-                  fontSize: 13, fontWeight: FontWeight.w600),
+              textStyle:
+                  GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -253,6 +394,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
   // ── Filter Bar ───────────────────────────────────────────────────
   Widget _buildFilterBar() {
+    final currentYear = DateTime.now().year;
+    final years = List.generate(currentYear - 2019, (i) => 2020 + i);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -278,6 +421,35 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                       .map(_presetChip)
                       .toList(),
                 ),
+              ),
+              const SizedBox(width: 10),
+              DropdownButton<int>(
+                value: _selectedYear,
+                hint: const Text('Year'),
+                items: years
+                    .map((y) => DropdownMenuItem(
+                          value: y,
+                          child: Text(y.toString()),
+                        ))
+                    .toList(),
+                onChanged: (val) {
+                  setState(() {
+                    _selectedYear = val;
+                    if (val != null) {
+                      _preset = 'All';
+                      _customRange = DateTimeRange(
+                        start: DateTime(val, 1, 1),
+                        end: DateTime(val, 12, 31),
+                      );
+                    } else {
+                      _customRange = null;
+                    }
+                  });
+                  _loadData();
+                },
+                style: GoogleFonts.inter(
+                    fontSize: 13, color: const Color(0xFF666666)),
+                underline: Container(height: 1, color: const Color(0xFFEEEEEE)),
               ),
             ],
           ),
@@ -309,8 +481,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                         setState(() => _granularity = g);
                         _loadData();
                       },
-                      selectedColor:
-                          AppColors.primary.withValues(alpha: 0.15),
+                      selectedColor: AppColors.primary.withValues(alpha: 0.15),
                       labelStyle: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -338,22 +509,22 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             lastDate: DateTime.now(),
             builder: (ctx, child) => Theme(
               data: Theme.of(ctx).copyWith(
-                colorScheme: const ColorScheme.light(
-                    primary: AppColors.primary),
+                colorScheme:
+                    const ColorScheme.light(primary: AppColors.primary),
               ),
               child: child!,
             ),
           );
           if (range != null) {
             setState(() {
-              _preset      = 'Custom';
+              _preset = 'Custom';
               _customRange = range;
             });
             _loadData();
           }
         } else {
           setState(() {
-            _preset      = label;
+            _preset = label;
             _customRange = null;
           });
           _loadData();
@@ -363,7 +534,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         margin: const EdgeInsets.only(right: 4, bottom: 4),
         decoration: BoxDecoration(
-          color:  selected ? AppColors.primary : const Color(0xFFF0F0F0),
+          color: selected ? AppColors.primary : const Color(0xFFF0F0F0),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(label,
@@ -380,58 +551,75 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   Widget _buildSummaryCards() {
     final rate = _total == 0 ? 0.0 : (_completed / _total * 100);
     final cards = [
-      {'label': 'Total',     'value': '$_total',     'icon': LucideIcons.clipboardList, 'color': const Color(0xFF6C63FF)},
-      {'label': 'Completed', 'value': '$_completed', 'icon': LucideIcons.checkCircle2,  'color': AppColors.success},
-      {'label': 'Pending',   'value': '$_pending',   'icon': LucideIcons.clock3,         'color': AppColors.warning},
-      {'label': 'Rate',      'value': '${rate.toStringAsFixed(1)}%', 'icon': LucideIcons.trendingUp, 'color': AppColors.primary},
+      {
+        'label': 'Total',
+        'value': '$_total',
+        'icon': LucideIcons.clipboardList,
+        'color': const Color(0xFF6C63FF)
+      },
+      {
+        'label': 'Completed',
+        'value': '$_completed',
+        'icon': LucideIcons.checkCircle2,
+        'color': AppColors.success
+      },
+      {
+        'label': 'Pending',
+        'value': '$_pending',
+        'icon': LucideIcons.clock3,
+        'color': AppColors.warning
+      },
+      {
+        'label': 'Rate',
+        'value': '${rate.toStringAsFixed(1)}%',
+        'icon': LucideIcons.trendingUp,
+        'color': AppColors.primary
+      },
     ];
 
-    return GridView.count(
-      crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.6,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: cards.map((c) {
         final color = c['color'] as Color;
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [_cardShadow()],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+        return Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [_cardShadow()],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(c['icon'] as IconData, color: color, size: 20),
                 ),
-                child: Icon(c['icon'] as IconData, color: color, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+                const SizedBox(width: 8),
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(c['value'] as String,
                         style: GoogleFonts.inter(
-                            fontSize: 24,
+                            fontSize: 18,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF1A1A2E))),
                     Text(c['label'] as String,
                         style: GoogleFonts.inter(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: const Color(0xFF888888),
                             fontWeight: FontWeight.w500)),
                   ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       }).toList(),
@@ -485,7 +673,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 sideTitles: SideTitles(
                   showTitles: true,
                   reservedSize: 28,
-                  interval: (_timeSeries.length / 5).ceilToDouble().clamp(1, double.infinity),
+                  interval: (_timeSeries.length / 5)
+                      .ceilToDouble()
+                      .clamp(1, double.infinity),
                   getTitlesWidget: (value, meta) {
                     final idx = value.toInt();
                     if (idx < 0 || idx >= _timeSeries.length) {
@@ -502,14 +692,16 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   },
                 ),
               ),
-              rightTitles:  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              topTitles:    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             ),
             borderData: FlBorderData(
               show: true,
               border: const Border(
                 bottom: BorderSide(color: Color(0xFFEEEEEE)),
-                left:   BorderSide(color: Color(0xFFEEEEEE)),
+                left: BorderSide(color: Color(0xFFEEEEEE)),
               ),
             ),
             minX: 0,
@@ -556,23 +748,23 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
     final sections = <PieChartSectionData>[];
     final statusData = [
-      {'label': 'Completed',  'count': _completed,  'color': AppColors.success},
-      {'label': 'Pending',    'count': _pending,    'color': AppColors.warning},
+      {'label': 'Completed', 'count': _completed, 'color': AppColors.success},
+      {'label': 'Pending', 'count': _pending, 'color': AppColors.warning},
       {'label': 'Processing', 'count': _processing, 'color': AppColors.primary},
-      {'label': 'Rejected',   'count': _rejected,   'color': AppColors.danger},
+      {'label': 'Rejected', 'count': _rejected, 'color': AppColors.danger},
     ];
 
     for (int i = 0; i < statusData.length; i++) {
-      final item  = statusData[i];
+      final item = statusData[i];
       final count = item['count'] as int;
       if (count == 0) continue;
-      final pct     = count / _total * 100;
+      final pct = count / _total * 100;
       final isTouched = i == _touchedPieIndex;
       sections.add(PieChartSectionData(
-        value:      count.toDouble(),
-        color:      item['color'] as Color,
-        radius:     isTouched ? 72 : 60,
-        title:      '${pct.toStringAsFixed(1)}%',
+        value: count.toDouble(),
+        color: item['color'] as Color,
+        radius: isTouched ? 72 : 60,
+        title: '${pct.toStringAsFixed(1)}%',
         titleStyle: GoogleFonts.inter(
           fontSize: isTouched ? 14 : 11,
           fontWeight: FontWeight.w700,
@@ -618,13 +810,14 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               children: statusData.map((item) {
                 final count = item['count'] as int;
                 final color = item['color'] as Color;
-                final pct   = _total == 0 ? 0.0 : count / _total * 100;
+                final pct = _total == 0 ? 0.0 : count / _total * 100;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Row(
                     children: [
                       Container(
-                        width: 12, height: 12,
+                        width: 12,
+                        height: 12,
                         decoration: BoxDecoration(
                           color: color,
                           shape: BoxShape.circle,
@@ -723,28 +916,28 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                       return const SizedBox.shrink();
                     }
                     final name = (_topServices[idx]['name'] as String);
-                    final short = name.length > 10
-                        ? '${name.substring(0, 9)}…'
-                        : name;
+                    final short =
+                        name.length > 10 ? '${name.substring(0, 9)}…' : name;
                     return Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(short,
                           style: GoogleFonts.inter(
-                              fontSize: 9,
-                              color: const Color(0xFF666666)),
+                              fontSize: 9, color: const Color(0xFF666666)),
                           textAlign: TextAlign.center),
                     );
                   },
                 ),
               ),
-              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles:
+                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             ),
             borderData: FlBorderData(
               show: true,
               border: const Border(
                 bottom: BorderSide(color: Color(0xFFEEEEEE)),
-                left:   BorderSide(color: Color(0xFFEEEEEE)),
+                left: BorderSide(color: Color(0xFFEEEEEE)),
               ),
             ),
             barGroups: groups,
@@ -774,13 +967,16 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           ? _emptyChart('No assigned requests in this period')
           : Column(
               children: _staffPerf.map((s) {
-                final rate  = (s['rate'] as double).clamp(0.0, 1.0);
-                final pct   = (rate * 100).toStringAsFixed(0);
+                final rate = (s['rate'] as double).clamp(0.0, 1.0);
+                final pct = (rate * 100).toStringAsFixed(0);
                 final Color color;
                 if (rate >= 0.7) {
                   color = AppColors.success;
-                } else if (rate >= 0.4) color = AppColors.warning;
-                else                  color = AppColors.danger;
+                } else if (rate >= 0.4) {
+                  color = AppColors.warning;
+                } else {
+                  color = AppColors.danger;
+                }
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 14),
@@ -911,8 +1107,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     return key;
   }
 
-  String _fmt(DateTime d) =>
-      '${d.month.toString().padLeft(2, '0')}/'
+  String _fmt(DateTime d) => '${d.month.toString().padLeft(2, '0')}/'
       '${d.day.toString().padLeft(2, '0')}/'
       '${d.year}';
 }

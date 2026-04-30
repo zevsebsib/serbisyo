@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +17,14 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String _role     = '';
   String _fullName = '';
+  String _departmentName = '';
   bool   _loading  = true;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _requestsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _usersSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _adminsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _departmentsSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _adminDocSub;
+  Timer? _realtimeDebounce;
 
   // SuperAdmin stats
   int _totalRequests    = 0;
@@ -38,11 +47,65 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _initRealtimeListeners();
   }
 
-  Future<void> _loadData() async {
+  @override
+  void dispose() {
+    _requestsSub?.cancel();
+    _usersSub?.cancel();
+    _adminsSub?.cancel();
+    _departmentsSub?.cancel();
+    _adminDocSub?.cancel();
+    _realtimeDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _initRealtimeListeners() {
+    _requestsSub = FirebaseFirestore.instance
+        .collection('requests')
+        .snapshots()
+        .listen((_) => _scheduleRealtimeReload());
+    _usersSub = FirebaseFirestore.instance
+        .collection('users')
+        .snapshots()
+        .listen((_) => _scheduleRealtimeReload());
+    _adminsSub = FirebaseFirestore.instance
+        .collection('admin')
+        .snapshots()
+        .listen((_) => _scheduleRealtimeReload());
+    _departmentsSub = FirebaseFirestore.instance
+        .collection('departments')
+        .snapshots()
+        .listen((_) => _scheduleRealtimeReload());
+  }
+
+  void _scheduleRealtimeReload() {
+    if (!mounted) return;
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(
+      const Duration(milliseconds: 300),
+      () {
+        if (mounted) {
+          _loadData(showLoader: false);
+        }
+      },
+    );
+  }
+
+  Future<void> _loadData({bool showLoader = true}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+
+    if (showLoader && mounted) {
+      setState(() => _loading = true);
+    }
+
+    _adminDocSub ??= FirebaseFirestore.instance
+        .collection('admin')
+        .doc(uid)
+        .snapshots()
+        .listen((_) => _scheduleRealtimeReload());
 
     try {
       final adminDoc = await FirebaseFirestore.instance
@@ -57,6 +120,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       _fullName = data['fullName'] ?? 'Admin';
 
       if (_role == 'superadmin') {
+        _departmentName = '';
         await _loadSuperAdminData();
       } else {
         await _loadAdminData(uid);
@@ -141,6 +205,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         (adminData['department'] as String?)?.trim().isNotEmpty == true
             ? (adminData['department'] as String).trim()
             : (adminData['Department'] as String?)?.trim() ?? '';
+    final staffDepartmentName =
+      (adminData['departmentName'] as String?)?.trim().isNotEmpty == true
+        ? (adminData['departmentName'] as String).trim()
+        : (adminData['DepartmentName'] as String?)?.trim().isNotEmpty == true
+          ? (adminData['DepartmentName'] as String).trim()
+          : staffDepartment;
+    _departmentName =
+      staffDepartmentName.isNotEmpty ? staffDepartmentName : 'Unassigned';
 
     final today      = DateTime.now();
     final startOfDay = DateTime(today.year, today.month, today.day);
@@ -848,6 +920,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             color: Colors.white,
                           )),
                       Text('Admin / Staff Member',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.80),
+                          )),
+                      const SizedBox(height: 2),
+                      Text('Department: $_departmentName',
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: Colors.white.withValues(alpha: 0.80),

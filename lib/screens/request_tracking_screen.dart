@@ -819,6 +819,43 @@ class _RequestTrackingScreenState
               ),
               const SizedBox(height: 40),
 
+              // ── Resubmit Button for Returned Requests ─────────────────
+              if (isReturned) ...[
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // Navigate to service form with request ID to resubmit
+                      Navigator.of(context).pushNamed(
+                        '/service_form',
+                        arguments: {'fromRequestId': resolvedId},
+                      ).then((_) {
+                        // Reload request after resubmission
+                        setState(() {});
+                      });
+                    },
+                    icon: const Icon(LucideIcons.redo2, size: 18),
+                    label: Text(
+                      'Resubmit Request',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+
               // ── Stepper ───────────────────────────────────────
               if (!isRejected && !isReturned)
                 ListView.builder(
